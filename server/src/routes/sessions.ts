@@ -35,4 +35,10 @@ router.patch('/sessions/:id/close', requireRole('office', 'admin'), (req, res) =
   res.json(session);
 });
 
+router.delete('/sessions/:id', requireRole('office', 'admin'), (req, res) => {
+  const result = db.prepare('DELETE FROM inventory_sessions WHERE id = ?').run(req.params.id);
+  if (result.changes === 0) { res.status(404).json({ error: 'Session not found' }); return; }
+  res.json({ ok: true });
+});
+
 export default router;
