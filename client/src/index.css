@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  html, body, #root {
+    height: 100%;
+    margin: 0;
+  }
+  body {
+    @apply bg-gray-50 text-gray-900 antialiased;
+    -webkit-tap-highlight-color: transparent;
+    font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  }
+  /* Ensure minimum 44px touch targets on interactive elements */
+  button:not(.no-min-h), a:not(.no-min-h) {
+    min-height: 44px;
+  }
+}
