@@ -58,7 +58,7 @@ export function BarcodeScanner({ open, onClose, onScan, label = 'Scan' }: Barcod
     start();
 
     return () => {
-      reader.reset();
+      try { (reader as unknown as { reset?: () => void }).reset?.(); } catch { /* ignore */ }
     };
   }, [open]);
 
