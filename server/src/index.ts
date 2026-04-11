@@ -37,7 +37,7 @@ if (require('fs').existsSync(clientDist)) {
 }
 
 const PORT = process.env.PORT ?? 8081;
-httpServer.listen(PORT, '0.0.0.0', () => {
+httpServer.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`[server] Listening on http://0.0.0.0:${PORT}`);
   console.log(`[server] Open in browser: http://localhost:${PORT}`);
 });

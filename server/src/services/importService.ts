@@ -190,7 +190,7 @@ export async function importSnapshot(filePath: string, session_id: number) {
   let imported = 0;
   const batchInsert = db.transaction((batch: Record<string, unknown>[]) => {
     for (const row of batch) {
-      const r = { ...row, session_id };
+      const r: Record<string, unknown> = { ...row, session_id };
       r.sap_quantity = parseFloat(String(r.sap_quantity).replace(/,/g, '')) || 0;
       if (r.material_number) r.material_number = String(r.material_number).trim().toUpperCase();
       if (r.sloc) r.sloc = String(r.sloc).trim().toUpperCase();

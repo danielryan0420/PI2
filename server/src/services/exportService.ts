@@ -75,5 +75,5 @@ export async function exportXLSX(session_id: number, from?: string, to?: string)
     ws.addRow(EXPORT_COLUMNS.map((col) => row[col.key] ?? ''));
   }
 
-  return wb.xlsx.writeBuffer() as Promise<Buffer>;
+  return wb.xlsx.writeBuffer() as unknown as Promise<Buffer>;
 }

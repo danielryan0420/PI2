@@ -60,7 +60,7 @@ router.get('/imports/status', (_req, res) => {
   const tables = ['sap_materials', 'sap_plant_data', 'sap_valuation'] as const;
   const status: Record<string, { count: number; updated_at: string | null }> = {};
   for (const t of tables) {
-    const row = db.prepare(`SELECT COUNT(*) as c, MAX(updated_at) as updated_at FROM ${t}`).get() as { c: number; updated_at: string | null };
+    const row = db.prepare(`SELECT COUNT(*) as count, MAX(updated_at) as updated_at FROM ${t}`).get() as { count: number; updated_at: string | null };
     status[t] = row;
   }
   res.json(status);
