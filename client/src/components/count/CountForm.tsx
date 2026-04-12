@@ -10,11 +10,13 @@ import type { Count, SlocConfig } from '../../types';
 
 interface CountFormProps {
   onSubmitted: (count: Count) => void;
+  prefill?: { material_number?: string; sloc?: string; wm_bin?: string | null; zbin?: string | null };
+  onPrefillConsumed?: () => void;
 }
 
 type ScanTarget = 'material' | 'wm_bin' | 'zbin';
 
-export function CountForm({ onSubmitted }: CountFormProps) {
+export function CountForm({ onSubmitted, prefill, onPrefillConsumed }: CountFormProps) {
   const { username, role, session, slocConfigs } = useSession();
   const { toast } = useToast();
 
@@ -28,6 +30,7 @@ export function CountForm({ onSubmitted }: CountFormProps) {
   const [lastCountId, setLastCountId] = useState<number | null>(null);
   const [materialDesc, setMaterialDesc] = useState<string | null>(null);
   const [scanTarget, setScanTarget] = useState<ScanTarget | null>(null);
+  const [recountBanner, setRecountBanner] = useState(false);
 
   const materialRef = useRef<HTMLInputElement>(null);
   const quantityRef = useRef<HTMLInputElement>(null);
@@ -36,6 +39,19 @@ export function CountForm({ onSubmitted }: CountFormProps) {
 
   // Always auto-focus material number on load
   useEffect(() => { materialRef.current?.focus(); }, []);
+
+  // Apply prefill when provided (recount)
+  useEffect(() => {
+    if (!prefill) return;
+    setMaterialNumber(prefill.material_number ?? '');
+    setSloc(prefill.sloc ?? '');
+    setWmBin(prefill.wm_bin ?? '');
+    setZbin(prefill.zbin ?? '');
+    setQuantity('');
+    setRecountBanner(true);
+    onPrefillConsumed?.();
+    setTimeout(() => quantityRef.current?.focus(), 50);
+  }, [prefill]);
 
   const slocConf: SlocConfig | undefined = slocConfigs.find((c) => c.sloc === sloc);
   const needsWmBin = slocConf?.wm_enabled === 1;
@@ -139,6 +155,14 @@ export function CountForm({ onSubmitted }: CountFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      {/* Recount banner */}
+      {recountBanner && (
+        <div className="flex items-center justify-between bg-amber-50 border border-amber-300 rounded-lg px-3 py-2">
+          <span className="text-sm text-amber-700 font-medium">⚠ Recount — fields pre-filled. Enter new quantity.</span>
+          <button type="button" onClick={() => setRecountBanner(false)} className="text-amber-500 hover:text-amber-700 text-lg leading-none">×</button>
+        </div>
+      )}
+
       {/* Username (read-only display) */}
       <div className="flex items-center justify-between bg-blue-50 rounded-lg px-3 py-2">
         <span className="text-sm text-blue-700 font-medium">Counter: {username}</span>

@@ -14,6 +14,7 @@ export function CounterPage() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<'count' | 'messages'>('count');
   const [unreadReplies, setUnreadReplies] = useState(0);
+  const [recountPrefill, setRecountPrefill] = useState<{ material_number?: string; sloc?: string; wm_bin?: string | null; zbin?: string | null } | undefined>(undefined);
 
   useEffect(() => {
     if (!session) return;
@@ -64,6 +65,16 @@ export function CounterPage() {
     if (t === 'messages') setUnreadReplies(0);
   }
 
+  function handleRecount(count: Count) {
+    setRecountPrefill({
+      material_number: count.material_number,
+      sloc: count.sloc,
+      wm_bin: count.wm_bin,
+      zbin: count.zbin,
+    });
+    setTab('count');
+  }
+
   const pending = counts.filter((c) => c.status === 'pending').length;
   const verified = counts.filter((c) => c.status === 'verified').length;
   const flagged = counts.filter((c) => c.status === 'flagged').length;
@@ -98,7 +109,11 @@ export function CounterPage() {
             {/* LEFT: Entry form */}
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
               <h2 className="text-base font-semibold text-gray-800 mb-4">Enter Count</h2>
-              <CountForm onSubmitted={handleSubmitted} />
+              <CountForm
+                onSubmitted={handleSubmitted}
+                prefill={recountPrefill}
+                onPrefillConsumed={() => setRecountPrefill(undefined)}
+              />
             </div>
 
             {/* RIGHT: My count history */}
@@ -129,7 +144,7 @@ export function CounterPage() {
                     No counts yet — submit your first count using the form
                   </div>
                 ) : (
-                  counts.map((count) => <CountCard key={count.id} count={count} />)
+                  counts.map((count) => <CountCard key={count.id} count={count} onRecount={handleRecount} />)
                 )}
               </div>
             </div>

@@ -70,7 +70,14 @@
       "Bash(curl -s http://localhost:3001/api/wm-bins -H \"x-role: office\" -H \"x-username: office1\")",
       "Bash(curl -s http://localhost:3001/api/users -H \"x-role: admin\" -H \"x-username: admin\")",
       "Bash(git init:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(git config:*)",
+      "Bash(git remote:*)",
+      "Bash(git push:*)",
+      "Bash(npx tsc:*)",
+      "Bash(git branch:*)",
+      "Bash(node seed-admin.js)"
     ]
   }
 }

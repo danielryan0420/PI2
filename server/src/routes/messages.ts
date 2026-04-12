@@ -51,6 +51,22 @@ router.get('/sessions/:sessionId/messages/general', (req, res) => {
   res.json(messages);
 });
 
+// Get all messages relevant to a counter: general + threads on their own counts
+router.get('/sessions/:sessionId/messages/mine', (req, res) => {
+  const username = req.headers['x-username'] as string;
+  if (!username) { res.status(400).json({ error: 'x-username header required' }); return; }
+
+  const messages = db.prepare(`
+    SELECT m.*, c.material_number, c.sloc
+    FROM messages m
+    LEFT JOIN counts c ON m.count_id = c.id
+    WHERE m.session_id = ?
+      AND (m.count_id IS NULL OR c.username = ? COLLATE NOCASE)
+    ORDER BY m.sent_at ASC
+  `).all(req.params.sessionId, username);
+  res.json(messages);
+});
+
 // Send a message on a specific count
 router.post('/counts/:countId/messages', (req, res) => {
   const { sender, role, body } = req.body as { sender: string; role: string; body: string };

@@ -10,9 +10,10 @@ import { Textarea } from '../ui/Input';
 
 interface CountCardProps {
   count: Count;
+  onRecount?: (count: Count) => void;
 }
 
-export function CountCard({ count }: CountCardProps) {
+export function CountCard({ count, onRecount }: CountCardProps) {
   const { username, role } = useSession();
   const [expanded, setExpanded] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -76,8 +77,17 @@ export function CountCard({ count }: CountCardProps) {
         </div>
 
         {count.status === 'flagged' && (
-          <div className="mt-1 text-xs text-red-600 bg-red-50 rounded px-2 py-1">
-            ⚠ Flagged for recount — please count again and submit a new entry
+          <div className="mt-1 flex items-center justify-between gap-2 text-xs text-red-600 bg-red-50 rounded px-2 py-1">
+            <span>⚠ Flagged for recount</span>
+            {onRecount && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onRecount(count); }}
+                className="no-min-h shrink-0 bg-red-600 hover:bg-red-700 text-white text-xs font-medium px-3 py-1 rounded-lg transition-colors"
+              >
+                Recount
+              </button>
+            )}
           </div>
         )}
 
