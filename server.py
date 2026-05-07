@@ -407,20 +407,20 @@ def health():
     return jsonify({'ok': True, 'time': datetime.now().isoformat()})
 
 # ===== SERVE REACT FRONTEND =====
-@app.get('/')
-def serve_index():
-    return send_from_directory('client/dist', 'index.html')
-
-@app.get('/<path:path>')
-def serve_static(path):
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve_frontend(path):
+    # Don't serve React for API routes
     if path.startswith('api/'):
         return jsonify({'error': 'Not found'}), 404
 
-    file_path = Path('client/dist') / path
-    if file_path.exists() and file_path.is_file():
-        return send_from_directory('client/dist', path)
+    # Special files that should be served from dist
+    if path and '.' in path.split('/')[-1]:
+        file_path = Path('client/dist') / path
+        if file_path.exists() and file_path.is_file():
+            return send_from_directory('client/dist', path)
 
-    # Return index.html for client-side routing
+    # For all other routes (client-side routes), serve index.html
     return send_from_directory('client/dist', 'index.html')
 
 if __name__ == '__main__':
