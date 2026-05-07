@@ -39,7 +39,6 @@ export function EntryPage() {
 
   async function handleLogin() {
     if (!username.trim()) { toast('Please enter your username', 'error'); return; }
-    if (!password) { toast('Please enter your password', 'error'); return; }
     if (!selectedSession) { toast('Please select an inventory session', 'error'); return; }
 
     setLoading(true);

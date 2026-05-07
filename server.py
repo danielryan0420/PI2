@@ -29,10 +29,10 @@ def allowed_file(filename):
 def login():
     data = request.json
     username = data.get('username')
-    password = data.get('password')
+    password = data.get('password') or ''
 
-    if not username or not password:
-        return jsonify({'error': 'Username and password required'}), 400
+    if not username:
+        return jsonify({'error': 'Username required'}), 400
 
     user = UserService.get_user(username)
     if not user or not UserService.verify_password(username, password):
