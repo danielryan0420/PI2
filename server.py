@@ -153,6 +153,15 @@ def list_counts(session_id):
     counts = CountService.list_counts(session_id, filters)
     return jsonify(counts)
 
+@app.get('/api/sessions/<int:session_id>/counts/mine')
+def list_my_counts(session_id):
+    username = request.args.get('username')
+    if not username:
+        return jsonify({'error': 'username required'}), 400
+
+    counts = CountService.list_counts(session_id, {'username': username})
+    return jsonify(counts)
+
 @app.get('/api/counts/<int:count_id>')
 def get_count(count_id):
     count = CountService.get_count(count_id)
