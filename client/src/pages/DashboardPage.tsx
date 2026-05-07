@@ -17,8 +17,6 @@ export function DashboardPage() {
   const [audit, setAudit] = useState<AuditEntry[]>([]);
   const [highValue, setHighValue] = useState<HighValueItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [auditPage, setAuditPage] = useState(1);
-  const [auditTotal, setAuditTotal] = useState(0);
   const [matFilter, setMatFilter] = useState('');
 
   const loadAll = useCallback(async () => {
@@ -44,9 +42,8 @@ export function DashboardPage() {
         `/sessions/${session.id}/audit`, headers
       );
       setAudit(data);
-      setAuditTotal(data.length);
     } catch (e) { console.log('Audit load error:', e); }
-  }, [session?.id, auditPage]);
+  }, [session?.id]);
 
   useEffect(() => { loadAll(); loadAudit(); }, [loadAll, loadAudit]);
 
@@ -377,7 +374,7 @@ export function DashboardPage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <h2 className="font-semibold text-gray-800">Audit Log</h2>
-              <span className="text-xs text-gray-400">{auditTotal} entries</span>
+              <span className="text-xs text-gray-400">{audit.length} entries</span>
             </div>
           </CardHeader>
           <div className="overflow-x-auto">
@@ -412,13 +409,6 @@ export function DashboardPage() {
               </tbody>
             </table>
           </div>
-          {auditTotal > 25 && (
-            <div className="px-3 py-2 border-t border-gray-100 flex gap-2 justify-center">
-              <button className="no-min-h text-xs text-blue-600 disabled:opacity-40 px-3 py-1" disabled={auditPage <= 1} onClick={() => setAuditPage((p) => p - 1)}>← Prev</button>
-              <span className="text-xs text-gray-500 self-center">Page {auditPage}</span>
-              <button className="no-min-h text-xs text-blue-600 disabled:opacity-40 px-3 py-1" disabled={auditPage * 25 >= auditTotal} onClick={() => setAuditPage((p) => p + 1)}>Next →</button>
-            </div>
-          )}
         </Card>
       </div>
     </AppShell>
