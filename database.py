@@ -252,9 +252,10 @@ class Database:
                     conn.execute("INSERT INTO _migrations (filename) VALUES (?)", (filename,))
                     conn.commit()
 
-    def execute(self, query: str, params: tuple = ()) -> sqlite3.Cursor:
+    def execute(self, query: str, params: tuple = ()) -> None:
         with self.get_connection() as conn:
-            return conn.execute(query, params)
+            conn.execute(query, params)
+            conn.commit()
 
     def execute_many(self, query: str, params: List[tuple]) -> None:
         with self.get_connection() as conn:

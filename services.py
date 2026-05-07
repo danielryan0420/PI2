@@ -92,34 +92,37 @@ class CountService:
     def update_count(
         count_id: int,
         editor_username: str,
+        reason: Optional[str] = None,
         **updates
     ) -> None:
         count = CountService.get_count(count_id)
         if not count:
             return
 
+        allowed = {'quantity', 'wm_bin', 'zbin', 'status', 'material_number', 'sloc'}
         for field, new_value in updates.items():
-            if field in ['quantity', 'wm_bin', 'zbin', 'status']:
-                old_value = count.get(field)
-                if old_value != new_value:
-                    db.execute(
-                        f"UPDATE counts SET {field} = ?, updated_at = ? WHERE id = ?",
-                        (new_value, datetime.now().isoformat(), count_id)
-                    )
-                    AuditService.log_event(
-                        count_id, editor_username, 'edit',
-                        field, str(old_value), str(new_value)
-                    )
+            if field not in allowed:
+                continue
+            old_value = count.get(field)
+            if old_value != new_value:
+                db.execute(
+                    f"UPDATE counts SET {field} = ?, updated_at = ? WHERE id = ?",
+                    (new_value, datetime.now().isoformat(), count_id)
+                )
+                AuditService.log_event(
+                    count_id, editor_username, 'edit',
+                    field, str(old_value), str(new_value), reason
+                )
 
     @staticmethod
     def verify_count(count_id: int, editor_username: str) -> None:
         CountService.update_count(count_id, editor_username, status='verified')
 
     @staticmethod
-    def flag_count(count_id: int, editor_username: str, reason: str) -> None:
+    def flag_count(count_id: int, editor_username: str, reason: str = '') -> None:
         db.execute(
-            "UPDATE counts SET status = ? WHERE id = ?",
-            ('flagged', count_id)
+            "UPDATE counts SET status = 'flagged', updated_at = ? WHERE id = ?",
+            (datetime.now().isoformat(), count_id)
         )
         AuditService.log_event(count_id, editor_username, 'flag', None, None, None, reason)
 
@@ -159,6 +162,13 @@ class MessageService:
             VALUES (?, ?, ?, ?, ?)
             """,
             (count_id, session_id, sender, role, body)
+        )
+
+    @staticmethod
+    def get_count_messages(count_id: int) -> List[Dict]:
+        return db.fetch_all(
+            "SELECT * FROM messages WHERE count_id = ? ORDER BY sent_at ASC",
+            (count_id,)
         )
 
     @staticmethod
@@ -269,6 +279,14 @@ class UserService:
             (role, username)
         )
 
+    @staticmethod
+    def update_user_role_by_id(user_id: int, role: str) -> None:
+        db.execute("UPDATE users SET role = ? WHERE id = ?", (role, user_id))
+
+    @staticmethod
+    def delete_user(user_id: int) -> None:
+        db.execute("DELETE FROM users WHERE id = ?", (user_id,))
+
 
 class SlocConfigService:
     @staticmethod
@@ -337,6 +355,18 @@ class WmBinService:
             (bin_id,)
         )
 
+    @staticmethod
+    def delete_bin(bin_id: int) -> None:
+        db.execute("DELETE FROM wm_bin_materials WHERE bin_id = ?", (bin_id,))
+        db.execute("DELETE FROM wm_bins WHERE id = ?", (bin_id,))
+
+    @staticmethod
+    def delete_bin_material(bin_id: int, material_number: str) -> None:
+        db.execute(
+            "DELETE FROM wm_bin_materials WHERE bin_id = ? AND material_number = ?",
+            (bin_id, material_number)
+        )
+
 
 class MaterialService:
     @staticmethod
@@ -381,6 +411,86 @@ class MaterialService:
             """,
             (f"%{query}%", f"%{query}%")
         )
+
+
+class ImportService:
+    @staticmethod
+    def get_import_status() -> Dict[str, Any]:
+        tables = {
+            'sap_materials': 'SELECT COUNT(*) as count, MAX(updated_at) as updated_at FROM sap_materials',
+            'sap_plant_data': 'SELECT COUNT(*) as count, MAX(updated_at) as updated_at FROM sap_plant_data',
+            'sap_valuation': 'SELECT COUNT(*) as count, MAX(updated_at) as updated_at FROM sap_valuation',
+        }
+        result = {}
+        for key, query in tables.items():
+            row = db.fetch_one(query)
+            result[key] = {'count': row['count'] if row else 0, 'updated_at': row['updated_at'] if row else None}
+        return result
+
+    @staticmethod
+    def import_materials(rows: List[Dict]) -> int:
+        count = 0
+        for row in rows:
+            mat = (row.get('material_number') or row.get('MATNR') or '').strip()
+            if not mat:
+                continue
+            desc = (row.get('description') or row.get('MAKTX') or row.get('MAKTG') or '').strip()
+            uom = (row.get('base_uom') or row.get('MEINS') or '').strip()
+            mtype = (row.get('material_type') or row.get('MTART') or '').strip()
+            mgroup = (row.get('material_group') or row.get('MATKL') or '').strip()
+            MaterialService.create_or_update_material(mat, desc, uom, mtype, mgroup)
+            count += 1
+        return count
+
+    @staticmethod
+    def import_valuation(rows: List[Dict]) -> int:
+        count = 0
+        for row in rows:
+            mat = (row.get('material_number') or row.get('MATNR') or '').strip()
+            val_area = (row.get('valuation_area') or row.get('BWKEY') or '').strip()
+            if not mat or not val_area:
+                continue
+            try:
+                db.insert("""
+                    INSERT OR REPLACE INTO sap_valuation
+                    (material_number, valuation_area, price_control, standard_price, moving_avg_price, total_stock, total_value, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    mat, val_area,
+                    row.get('price_control') or row.get('VPRSV') or '',
+                    float(row.get('standard_price') or row.get('STPRS') or 0),
+                    float(row.get('moving_avg_price') or row.get('VERPR') or 0),
+                    float(row.get('total_stock') or row.get('LBKUM') or 0),
+                    float(row.get('total_value') or row.get('SALK3') or 0),
+                    datetime.now().isoformat()
+                ))
+                count += 1
+            except Exception:
+                continue
+        return count
+
+    @staticmethod
+    def import_snapshot(session_id: int, rows: List[Dict]) -> int:
+        db.execute("DELETE FROM sap_snapshot WHERE session_id = ?", (session_id,))
+        count = 0
+        for row in rows:
+            mat = (row.get('material_number') or row.get('MATNR') or '').strip()
+            sloc = (row.get('sloc') or row.get('LGORT') or '').strip()
+            if not mat or not sloc:
+                continue
+            try:
+                db.insert("""
+                    INSERT INTO sap_snapshot (session_id, material_number, sloc, sap_quantity, uom)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (
+                    session_id, mat, sloc,
+                    float(row.get('sap_quantity') or row.get('quantity') or row.get('LABST') or 0),
+                    row.get('uom') or row.get('MEINS') or ''
+                ))
+                count += 1
+            except Exception:
+                continue
+        return count
 
 
 class DashboardService:

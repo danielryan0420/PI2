@@ -1,15 +1,17 @@
 import os
+import csv
+import io
 import json
 from pathlib import Path
 from datetime import datetime
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, request, send_from_directory, Response
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 import uuid
 from services import (
     UserService, SessionService, CountService, PhotoService,
     MessageService, AuditService, SlocConfigService, MaterialService,
-    WmBinService, DashboardService
+    WmBinService, DashboardService, ImportService
 )
 
 app = Flask(__name__, static_folder='client/dist', static_url_path='')
@@ -78,6 +80,26 @@ def get_user(username):
         return jsonify({'error': 'User not found'}), 404
     return jsonify({'id': user['id'], 'username': user['username'], 'role': user['role'], 'created_at': user['created_at']})
 
+@app.patch('/api/users/<int:user_id>')
+def update_user(user_id):
+    data = request.json or {}
+    role = data.get('role')
+    if not role:
+        return jsonify({'error': 'role required'}), 400
+    try:
+        UserService.update_user_role_by_id(user_id, role)
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.delete('/api/users/<int:user_id>')
+def delete_user(user_id):
+    try:
+        UserService.delete_user(user_id)
+        return '', 204
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
 # ===== SESSIONS =====
 @app.get('/api/sessions')
 def list_sessions():
@@ -104,7 +126,7 @@ def get_session(session_id):
         return jsonify({'error': 'Session not found'}), 404
     return jsonify(session)
 
-@app.post('/api/sessions/<int:session_id>/close')
+@app.route('/api/sessions/<int:session_id>/close', methods=['POST', 'PATCH'])
 def close_session(session_id):
     try:
         SessionService.close_session(session_id)
@@ -172,31 +194,32 @@ def get_count(count_id):
 @app.patch('/api/counts/<int:count_id>')
 def update_count(count_id):
     data = request.json
-    editor_username = data.get('editor_username')
-
+    # Accept both editor_username and editedBy (sent by OfficePage)
+    editor_username = data.get('editor_username') or data.get('editedBy') or request.headers.get('x-username')
+    reason = data.get('reason')
+    # Accept either flat fields or nested {changes: {...}}
+    changes = data.get('changes') or {k: v for k, v in data.items() if k not in ('editor_username', 'editedBy', 'reason', 'changes')}
     try:
-        CountService.update_count(count_id, editor_username, **{k: v for k, v in data.items() if k != 'editor_username'})
+        CountService.update_count(count_id, editor_username, reason=reason, **changes)
         return jsonify(CountService.get_count(count_id))
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
-@app.post('/api/counts/<int:count_id>/verify')
+@app.route('/api/counts/<int:count_id>/verify', methods=['POST', 'PATCH'])
 def verify_count(count_id):
-    data = request.json
-    editor_username = data.get('editor_username')
-
+    data = request.json or {}
+    editor_username = data.get('editor_username') or data.get('verifiedBy') or request.headers.get('x-username')
     try:
         CountService.verify_count(count_id, editor_username)
         return jsonify(CountService.get_count(count_id))
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
-@app.post('/api/counts/<int:count_id>/flag')
+@app.route('/api/counts/<int:count_id>/flag', methods=['POST', 'PATCH'])
 def flag_count(count_id):
-    data = request.json
-    editor_username = data.get('editor_username')
-    reason = data.get('reason')
-
+    data = request.json or {}
+    editor_username = data.get('editor_username') or data.get('flaggedBy') or request.headers.get('x-username')
+    reason = data.get('reason', '')
     try:
         CountService.flag_count(count_id, editor_username, reason)
         return jsonify(CountService.get_count(count_id))
@@ -276,6 +299,16 @@ def get_my_messages(session_id):
     if not username:
         return jsonify({'error': 'username required'}), 400
     messages = MessageService.get_user_messages(session_id, username)
+    return jsonify(messages)
+
+@app.get('/api/sessions/<int:session_id>/messages/general')
+def get_general_messages(session_id):
+    messages = MessageService.get_messages(session_id, count_id=None)
+    return jsonify(messages)
+
+@app.get('/api/counts/<int:count_id>/messages')
+def get_count_messages(count_id):
+    messages = MessageService.get_count_messages(count_id)
     return jsonify(messages)
 
 @app.post('/api/counts/<int:count_id>/messages')
@@ -403,6 +436,98 @@ def add_material_to_bin(bin_id):
 def get_bin_materials(bin_id):
     materials = WmBinService.get_bin_materials(bin_id)
     return jsonify(materials)
+
+@app.delete('/api/wm-bins/<int:bin_id>')
+def delete_wm_bin(bin_id):
+    try:
+        WmBinService.delete_bin(bin_id)
+        return '', 204
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.delete('/api/wm-bins/<int:bin_id>/materials/<material_number>')
+def delete_bin_material(bin_id, material_number):
+    try:
+        WmBinService.delete_bin_material(bin_id, material_number)
+        return '', 204
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+# ===== IMPORTS =====
+def parse_csv_upload():
+    file = request.files.get('file')
+    if not file:
+        return None, jsonify({'error': 'No file provided'}), 400
+    text = file.read().decode('utf-8-sig', errors='replace')
+    reader = csv.DictReader(io.StringIO(text))
+    return list(reader), None, None
+
+@app.get('/api/imports/status')
+def get_import_status():
+    return jsonify(ImportService.get_import_status())
+
+@app.post('/api/imports/materials')
+def import_materials():
+    rows, err, code = parse_csv_upload()
+    if err:
+        return err, code
+    try:
+        count = ImportService.import_materials(rows)
+        return jsonify({'imported': count}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.post('/api/imports/plant-data')
+def import_plant_data():
+    rows, err, code = parse_csv_upload()
+    if err:
+        return err, code
+    return jsonify({'imported': 0}), 201  # placeholder
+
+@app.post('/api/imports/valuation')
+def import_valuation():
+    rows, err, code = parse_csv_upload()
+    if err:
+        return err, code
+    try:
+        count = ImportService.import_valuation(rows)
+        return jsonify({'imported': count}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.post('/api/imports/snapshot')
+def import_snapshot():
+    rows, err, code = parse_csv_upload()
+    if err:
+        return err, code
+    session_id = request.form.get('sessionId')
+    if not session_id:
+        return jsonify({'error': 'sessionId required'}), 400
+    try:
+        count = ImportService.import_snapshot(int(session_id), rows)
+        return jsonify({'imported': count}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+# ===== EXPORT =====
+@app.get('/api/sessions/<int:session_id>/export')
+def export_session(session_id):
+    fmt = request.args.get('format', 'csv')
+    counts = CountService.list_counts(session_id, {})
+    if not counts:
+        counts = []
+
+    output = io.StringIO()
+    fields = ['id', 'material_number', 'quantity', 'sloc', 'wm_bin', 'zbin', 'status', 'username', 'created_at', 'updated_at']
+    writer = csv.DictWriter(output, fieldnames=fields, extrasaction='ignore')
+    writer.writeheader()
+    writer.writerows(counts)
+
+    return Response(
+        output.getvalue(),
+        mimetype='text/csv',
+        headers={'Content-Disposition': f'attachment; filename=session_{session_id}_counts.csv'}
+    )
 
 # ===== AUDIT LOG =====
 @app.get('/api/counts/<int:count_id>/audit')
