@@ -270,6 +270,32 @@ def get_messages(session_id):
     messages = MessageService.get_messages(session_id, count_id)
     return jsonify(messages)
 
+@app.get('/api/sessions/<int:session_id>/messages/mine')
+def get_my_messages(session_id):
+    username = request.args.get('username') or request.headers.get('x-username')
+    if not username:
+        return jsonify({'error': 'username required'}), 400
+    messages = MessageService.get_user_messages(session_id, username)
+    return jsonify(messages)
+
+@app.post('/api/counts/<int:count_id>/messages')
+def create_count_message(count_id):
+    data = request.json
+    count = CountService.get_count(count_id)
+    if not count:
+        return jsonify({'error': 'Count not found'}), 404
+    try:
+        message_id = MessageService.create_message(
+            session_id=count['session_id'],
+            sender=data.get('sender'),
+            role=data.get('role', 'counter'),
+            body=data.get('body'),
+            count_id=count_id
+        )
+        return jsonify({'id': message_id}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
 # ===== SLOC CONFIG =====
 @app.get('/api/sloc-config')
 def list_sloc_config():

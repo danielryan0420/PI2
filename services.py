@@ -173,6 +173,20 @@ class MessageService:
             (session_id,)
         )
 
+    @staticmethod
+    def get_user_messages(session_id: int, username: str) -> List[Dict]:
+        return db.fetch_all("""
+            SELECT m.*, c.material_number, c.sloc, c.username as counter_username
+            FROM messages m
+            LEFT JOIN counts c ON m.count_id = c.id
+            WHERE m.session_id = ?
+            AND (
+                (m.count_id IS NULL AND m.sender = ?)
+                OR (c.username = ?)
+            )
+            ORDER BY m.sent_at ASC
+        """, (session_id, username, username))
+
 
 class AuditService:
     @staticmethod
