@@ -88,12 +88,6 @@ def main_app():
                 "Counter": pages.counter,
                 "Dashboard": pages.dashboard,
             }
-        elif st.session_state.role == "office":
-            pages_list = {
-                "Entry": pages.entry,
-                "Office": pages.office,
-                "Dashboard": pages.dashboard,
-            }
         elif st.session_state.role == "admin":
             pages_list = {
                 "Counter": pages.counter,
@@ -117,12 +111,6 @@ def main_app():
     if st.session_state.role == "counter":
         pages_dict = {
             "Counter": pages.counter,
-            "Dashboard": pages.dashboard,
-        }
-    elif st.session_state.role == "office":
-        pages_dict = {
-            "Entry": pages.entry,
-            "Office": pages.office,
             "Dashboard": pages.dashboard,
         }
     elif st.session_state.role == "admin":

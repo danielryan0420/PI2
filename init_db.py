@@ -10,7 +10,6 @@ def init_seed_data():
     # Create default users
     users = [
         ("admin", "admin"),
-        ("office1", "office"),
         ("counter1", "counter"),
         ("counter2", "counter"),
     ]
@@ -63,7 +62,6 @@ def init_seed_data():
     print("\n✓ Seed data initialized successfully")
     print("\nDefault Credentials:")
     print("  Admin:    admin / admin")
-    print("  Office:   office1 / any")
     print("  Counters: counter1, counter2 / any")
 
 if __name__ == "__main__":

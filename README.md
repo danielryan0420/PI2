@@ -5,8 +5,8 @@ A Python/Streamlit-based inventory management system with support for QR/barcode
 ## Features
 
 - **Counter Interface**: Capture inventory counts with barcode/QR scanning and photo attachments
-- **Entry System**: Manual count entry and bulk import via Excel
-- **Office Management**: SLOC configuration, material master data, WM bin setup
+- **Manual & Bulk Entry**: Manual count entry and bulk import via Excel
+- **Configuration**: SLOC management, material master data, WM bin setup (admin only)
 - **Admin Tools**: Session management, user administration, comprehensive audit logs
 - **Dashboard**: Real-time analytics, discrepancy detection, counter performance tracking
 - **Mobile-Friendly**: Works on tablets and phones with Bluetooth Zebra scanner support
@@ -37,6 +37,18 @@ pip install -r requirements.txt
 python init_db.py
 ```
 
+## Quick Start
+
+```bash
+pip install -r requirements.txt
+python3 init_db.py        # Creates admin and counter users
+streamlit run app.py      # Runs at http://localhost:8501
+```
+
+**Test Credentials:**
+- `admin` (admin role - full access)
+- `counter1`, `counter2` (counter role - limited access)
+
 ## Running the Application
 
 ```bash
@@ -51,18 +63,18 @@ The app will be available at `http://localhost:8501`
 - Submit inventory counts with camera-based barcode scanning
 - Attach photos to counts
 - View recent submissions
+- View dashboard
 
-### Office
+### Admin
+- Submit inventory counts (full counter access)
 - Manual count entry and bulk import
 - Manage SLOC configurations
 - Maintain material master data
 - Configure WM bins and storage locations
-
-### Admin
 - Create and manage inventory sessions
 - User administration (create, update roles)
 - View comprehensive audit logs
-- Access all dashboard features
+- Access full dashboard features
 
 ## Project Structure
 

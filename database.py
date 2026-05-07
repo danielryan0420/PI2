@@ -15,7 +15,7 @@ MIGRATION_FILES = [
 CREATE TABLE IF NOT EXISTS users (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     username   TEXT NOT NULL UNIQUE COLLATE NOCASE,
-    role       TEXT NOT NULL CHECK(role IN ('counter','office','admin')),
+    role       TEXT NOT NULL CHECK(role IN ('counter','admin')),
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -74,7 +74,7 @@ CREATE TABLE IF NOT EXISTS messages (
     count_id   INTEGER REFERENCES counts(id) ON DELETE CASCADE,
     session_id INTEGER NOT NULL REFERENCES inventory_sessions(id),
     sender     TEXT NOT NULL,
-    role       TEXT NOT NULL CHECK(role IN ('counter','office')),
+    role       TEXT NOT NULL CHECK(role IN ('counter','admin')),
     body       TEXT NOT NULL,
     sent_at    TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -158,7 +158,7 @@ CREATE TABLE IF NOT EXISTS messages_new (
     count_id   INTEGER REFERENCES counts(id) ON DELETE CASCADE,
     session_id INTEGER NOT NULL REFERENCES inventory_sessions(id),
     sender     TEXT NOT NULL,
-    role       TEXT NOT NULL CHECK(role IN ('counter','office')),
+    role       TEXT NOT NULL CHECK(role IN ('counter','admin')),
     body       TEXT NOT NULL,
     sent_at    TEXT NOT NULL DEFAULT (datetime('now'))
 );
