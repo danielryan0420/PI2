@@ -26,7 +26,7 @@ function AppRoutes() {
           <CounterPage />
         </ProtectedRoute>
       } />
-      <Route path="/office" element={
+      <Route path="/review" element={
         <ProtectedRoute allowedRoles={['admin']}>
           <OfficePage />
         </ProtectedRoute>
