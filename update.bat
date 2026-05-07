@@ -20,11 +20,32 @@ if errorlevel 1 (
 
 echo.
 echo ======================================
-echo Rebuilding React Frontend
+echo Installing/Updating npm packages
 echo ======================================
 echo.
 
 cd client
+if not exist "node_modules\" (
+    echo Installing npm packages...
+    call npm install
+) else (
+    echo npm packages already installed
+)
+
+if errorlevel 1 (
+    echo.
+    echo ERROR: Failed to install npm packages
+    cd ..
+    pause
+    exit /b 1
+)
+
+echo.
+echo ======================================
+echo Rebuilding React Frontend
+echo ======================================
+echo.
+
 call npm run build
 
 if errorlevel 1 (
