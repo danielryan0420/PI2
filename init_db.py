@@ -2,7 +2,7 @@
 """Initialize database with seed data."""
 
 from database import db
-from services import UserService, SlocConfigService, MaterialService
+from services import UserService, SlocConfigService, MaterialService, SessionService
 
 def init_seed_data():
     """Create seed users and configuration."""
