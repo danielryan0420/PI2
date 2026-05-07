@@ -59,10 +59,20 @@ def init_seed_data():
         else:
             print(f"  Material {mat_num} already exists")
 
+    # Create default session
+    existing_session = db.fetch_one("SELECT * FROM inventory_sessions WHERE name = 'Mosel PI July 2026'")
+    if not existing_session:
+        SessionService.create_session("Mosel PI July 2026")
+        print(f"✓ Created session: Mosel PI July 2026")
+    else:
+        print(f"  Session 'Mosel PI July 2026' already exists")
+
     print("\n✓ Seed data initialized successfully")
     print("\nDefault Credentials:")
     print("  Admin:    admin / admin")
     print("  Counters: counter1, counter2 / any")
+    print("\nDefault Session:")
+    print("  Mosel PI July 2026 (ready to use)")
 
 if __name__ == "__main__":
     init_seed_data()
