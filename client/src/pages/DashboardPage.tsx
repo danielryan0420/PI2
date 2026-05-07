@@ -4,7 +4,6 @@ import { Card, CardBody, CardHeader } from '../components/ui/Card';
 import { StatusBadge } from '../components/ui/Badge';
 import { useSession } from '../context/SessionContext';
 import { api } from '../lib/api';
-import { getSocket, joinSession } from '../lib/socket';
 import { formatDateTime, formatCurrency, formatNumber } from '../lib/utils';
 import type { DashboardStats, MaterialStatus, VarianceRow, AuditEntry, HighValueItem, SlocBreakdown, CounterActivity, CountTrend } from '../types';
 
@@ -50,27 +49,6 @@ export function DashboardPage() {
   }, [session?.id, auditPage]);
 
   useEffect(() => { loadAll(); loadAudit(); }, [loadAll, loadAudit]);
-
-  // Real-time dashboard updates
-  useEffect(() => {
-    if (!session) return;
-    joinSession(session.id);
-    const socket = getSocket();
-    socket.on('dashboard:updated', (newStats: DashboardStats) => setStats(newStats));
-    socket.on('count:created', loadAll);
-    socket.on('count:updated', loadAll);
-    socket.on('count:verified', loadAll);
-    socket.on('count:flagged', loadAll);
-    socket.on('snapshot:loaded', loadAll);
-    return () => {
-      socket.off('dashboard:updated');
-      socket.off('count:created', loadAll);
-      socket.off('count:updated', loadAll);
-      socket.off('count:verified', loadAll);
-      socket.off('count:flagged', loadAll);
-      socket.off('snapshot:loaded', loadAll);
-    };
-  }, [session?.id, loadAll]);
 
   const filteredMaterials = matFilter
     ? materialStatus.filter((m) =>

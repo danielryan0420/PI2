@@ -8,7 +8,6 @@ import { StatusBadge, Badge } from '../components/ui/Badge';
 import { useSession } from '../context/SessionContext';
 import { useToast } from '../context/ToastContext';
 import { api } from '../lib/api';
-import { getSocket, joinSession } from '../lib/socket';
 import { formatDateTime, formatCurrency } from '../lib/utils';
 import type { Count, Message, SlocConfig, User, Role, InventorySession, WmBin, WmBinMaterial } from '../types';
 
@@ -52,19 +51,6 @@ export function OfficePage() {
   }, [session?.id, filterSloc, filterStatus, filterUser, filterMat]);
 
   useEffect(() => { if (session) loadCounts(); }, [loadCounts]);
-
-  // Socket real-time updates
-  useEffect(() => {
-    if (!session) return;
-    joinSession(session.id);
-    const socket = getSocket();
-    const refresh = () => loadCounts();
-    socket.on('count:created', refresh);
-    socket.on('count:updated', refresh);
-    socket.on('count:verified', refresh);
-    socket.on('count:flagged', refresh);
-    return () => { socket.off('count:created', refresh); socket.off('count:updated', refresh); socket.off('count:verified', refresh); socket.off('count:flagged', refresh); };
-  }, [session?.id, loadCounts]);
 
   async function handleVerify(count: Count) {
     setVerifyLoading(count.id);
@@ -145,11 +131,6 @@ export function OfficePage() {
     if (first !== undefined) { setReplyTarget(first); loadThread(first); }
   }, [messages, tab]);
 
-  useEffect(() => {
-    const socket = getSocket();
-    socket.on('message:created', () => { loadMessages(); if (replyTarget !== null) loadThread(replyTarget); });
-    return () => { socket.off('message:created'); };
-  }, [replyTarget]);
 
   async function handleReply() {
     if (replyTarget === null || !replyText.trim() || !session) return;

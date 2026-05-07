@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSession } from '../../context/SessionContext';
 import { api } from '../../lib/api';
-import { getSocket } from '../../lib/socket';
 import { formatDateTime } from '../../lib/utils';
 import type { Message } from '../../types';
 
@@ -26,21 +25,6 @@ export function MessagesPanel() {
   useEffect(() => {
     if (!session) return;
     loadMessages();
-
-    const socket = getSocket();
-    socket.on('message:created', (msg: Message) => {
-      // Add to our list if it's general or on one of our counts
-      setAllMessages((prev) => {
-        const isGeneral = msg.count_id === null;
-        const isOurCount = prev.some((m) => m.count_id === msg.count_id);
-        if (isGeneral || isOurCount) {
-          if (prev.find((m) => m.id === msg.id)) return prev;
-          return [...prev, msg];
-        }
-        return prev;
-      });
-    });
-    return () => { socket.off('message:created'); };
   }, [session?.id, username]);
 
   // Auto-scroll when selected thread messages change
