@@ -25,29 +25,28 @@ export function DashboardPage() {
   const loadAll = useCallback(async () => {
     if (!session) return;
     try {
-      const [s, ms, v, hv] = await Promise.all([
-        api.get<DashboardStats>(`/sessions/${session.id}/dashboard`, headers),
-        api.get<MaterialStatus[]>(`/sessions/${session.id}/material-status`, headers),
-        api.get<VarianceRow[]>(`/sessions/${session.id}/variance`, headers),
-        api.get<HighValueItem[]>(`/sessions/${session.id}/high-value`, headers),
+      const [s, ms, v] = await Promise.all([
+        api.get<DashboardStats>(`/sessions/${session.id}/dashboard/summary`, headers),
+        api.get<MaterialStatus[]>(`/sessions/${session.id}/dashboard/materials`, headers),
+        api.get<VarianceRow[]>(`/sessions/${session.id}/dashboard/discrepancies`, headers),
       ]);
       setStats(s);
       setMaterialStatus(ms);
       setVariance(v);
-      setHighValue(hv);
-    } catch { /**/ }
+      setHighValue([]); // Not implemented yet
+    } catch (e) { console.log('Dashboard load error:', e); }
     finally { setLoading(false); }
   }, [session?.id]);
 
   const loadAudit = useCallback(async () => {
     if (!session) return;
     try {
-      const data = await api.get<{ rows: AuditEntry[]; total: number; page: number }>(
-        `/sessions/${session.id}/audit?page=${auditPage}&limit=25`, headers
+      const data = await api.get<AuditEntry[]>(
+        `/sessions/${session.id}/audit`, headers
       );
-      setAudit(data.rows);
-      setAuditTotal(data.total);
-    } catch { /**/ }
+      setAudit(data);
+      setAuditTotal(data.length);
+    } catch (e) { console.log('Audit load error:', e); }
   }, [session?.id, auditPage]);
 
   useEffect(() => { loadAll(); loadAudit(); }, [loadAll, loadAudit]);
