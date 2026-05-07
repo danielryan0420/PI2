@@ -37,3 +37,4 @@ uploads/
 .streamlit/
 .env
 inventory.db-*
+server.log
