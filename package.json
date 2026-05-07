@@ -1,0 +1,13 @@
+{
+  "name": "physical-inventory",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Physical Inventory Management System - Python Backend + React Frontend",
+  "scripts": {
+    "install-all": "npm install && cd client && npm install && cd ..",
+    "dev": "npm run dev --workspace=client -- &",
+    "build": "cd client && npm run build && cd ..",
+    "start": "python3 server.py",
+    "preview": "cd client && npm run preview && cd .."
+  }
+}
