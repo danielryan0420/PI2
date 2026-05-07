@@ -22,7 +22,7 @@ export function EntryPage() {
   // If already logged in, redirect
   useEffect(() => {
     if (role) {
-      navigate(role === 'counter' ? '/count' : role === 'admin' ? '/admin' : '/office');
+      navigate(role === 'counter' ? '/count' : '/admin');
     }
   }, [role, navigate]);
 
@@ -51,7 +51,7 @@ export function EntryPage() {
       setSession(selectedSession);
       setSlocConfigs(configs);
 
-      navigate(user.role === 'counter' ? '/count' : user.role === 'admin' ? '/admin' : '/office');
+      navigate(user.role === 'counter' ? '/count' : '/admin');
     } catch (e) {
       if (e instanceof Error && e.message.includes('401')) {
         toast('Invalid username or password', 'error');

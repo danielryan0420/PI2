@@ -275,11 +275,15 @@ def serve_photo(filename):
 def create_message(session_id):
     data = request.json
 
+    # Normalize role — old cached sessions may have 'office', map to 'admin'
+    raw_role = data.get('role') or request.headers.get('x-role') or 'counter'
+    role = 'admin' if raw_role not in ('counter', 'admin') else raw_role
+
     try:
         message_id = MessageService.create_message(
             session_id=session_id,
             sender=data.get('sender'),
-            role=data.get('role'),
+            role=role,
             body=data.get('body'),
             count_id=data.get('count_id')
         )
@@ -317,11 +321,13 @@ def create_count_message(count_id):
     count = CountService.get_count(count_id)
     if not count:
         return jsonify({'error': 'Count not found'}), 404
+    raw_role = data.get('role') or request.headers.get('x-role') or 'counter'
+    role = 'admin' if raw_role not in ('counter', 'admin') else raw_role
     try:
         message_id = MessageService.create_message(
             session_id=count['session_id'],
             sender=data.get('sender'),
-            role=data.get('role', 'counter'),
+            role=role,
             body=data.get('body'),
             count_id=count_id
         )

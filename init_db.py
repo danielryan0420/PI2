@@ -62,11 +62,14 @@ def init_seed_data():
         else:
             print(f"  Material {mat_num} already exists")
 
-    # Create default session
+    # Ensure default session exists and is open
     existing_session = db.fetch_one("SELECT * FROM inventory_sessions WHERE name = 'Mosel PI July 2026'")
     if not existing_session:
         SessionService.create_session("Mosel PI July 2026")
         print(f"✓ Created session: Mosel PI July 2026")
+    elif existing_session.get('status') != 'open':
+        db.execute("UPDATE inventory_sessions SET status='open', closed_at=NULL WHERE name='Mosel PI July 2026'")
+        print(f"✓ Reopened session: Mosel PI July 2026")
     else:
         print(f"  Session 'Mosel PI July 2026' already exists")
 
