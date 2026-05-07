@@ -589,5 +589,15 @@ def serve_frontend(path):
     # For all other routes (client-side routes), serve index.html
     return send_from_directory('client/dist', 'index.html')
 
+def _auto_init():
+    """Ensure default seed data exists on every server start."""
+    from init_db import init_seed_data
+    import contextlib
+    with contextlib.redirect_stdout(io.StringIO()):
+        init_seed_data()
+
+# Always run on startup (works with debug reloader too)
+_auto_init()
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8081)
