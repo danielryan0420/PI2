@@ -372,43 +372,165 @@ class MaterialService:
 class DashboardService:
     @staticmethod
     def get_session_summary(session_id: int) -> Dict[str, Any]:
-        stats = db.fetch_one(
-            """
+        # Count totals by status
+        totals_row = db.fetch_one("""
             SELECT
-                COUNT(*) as total_counts,
-                SUM(CASE WHEN status = 'verified' THEN 1 ELSE 0 END) as verified_counts,
-                SUM(CASE WHEN status = 'flagged' THEN 1 ELSE 0 END) as flagged_counts,
-                COUNT(DISTINCT username) as unique_counters,
-                COUNT(DISTINCT material_number) as unique_materials,
-                SUM(quantity) as total_quantity
+                COUNT(*) as total,
+                SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+                SUM(CASE WHEN status = 'verified' THEN 1 ELSE 0 END) as verified,
+                SUM(CASE WHEN status = 'flagged' THEN 1 ELSE 0 END) as flagged
             FROM counts WHERE session_id = ?
-            """,
+        """, (session_id,))
+
+        totals = {
+            'total': (totals_row['total'] or 0) if totals_row else 0,
+            'pending': (totals_row['pending'] or 0) if totals_row else 0,
+            'verified': (totals_row['verified'] or 0) if totals_row else 0,
+            'flagged': (totals_row['flagged'] or 0) if totals_row else 0,
+        }
+
+        # First pass yield: verified counts that were never edited
+        first_pass = db.fetch_one("""
+            SELECT COUNT(*) as count
+            FROM counts c
+            WHERE session_id = ? AND status = 'verified'
+            AND NOT EXISTS (
+                SELECT 1 FROM audit_log al
+                WHERE al.count_id = c.id AND al.event_type = 'edit'
+            )
+        """, (session_id,))
+        first_pass_count = (first_pass['count'] or 0) if first_pass else 0
+        first_pass_yield = (
+            round((first_pass_count / totals['verified']) * 100, 1)
+            if totals['verified'] > 0 else None
+        )
+
+        # Snapshot info
+        snapshot_row = db.fetch_one(
+            "SELECT COUNT(*) as total FROM sap_snapshot WHERE session_id = ?",
             (session_id,)
         )
-        return stats or {}
+        snapshot_total = (snapshot_row['total'] or 0) if snapshot_row else 0
+        snapshot_loaded = snapshot_total > 0
+
+        snapshot_counted = 0
+        if snapshot_loaded:
+            counted_row = db.fetch_one("""
+                SELECT COUNT(DISTINCT material_number || '|' || sloc) as counted
+                FROM counts WHERE session_id = ?
+            """, (session_id,))
+            snapshot_counted = (counted_row['counted'] or 0) if counted_row else 0
+
+        # Unanswered messages from counters
+        unread_row = db.fetch_one(
+            "SELECT COUNT(*) as count FROM messages WHERE session_id = ? AND role = 'counter'",
+            (session_id,)
+        )
+        unread_messages = (unread_row['count'] or 0) if unread_row else 0
+
+        # SLOC breakdown
+        sloc_rows = db.fetch_all("""
+            SELECT
+                sloc,
+                COUNT(*) as total,
+                SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+                SUM(CASE WHEN status = 'verified' THEN 1 ELSE 0 END) as verified,
+                SUM(CASE WHEN status = 'flagged' THEN 1 ELSE 0 END) as flagged
+            FROM counts WHERE session_id = ?
+            GROUP BY sloc ORDER BY total DESC
+        """, (session_id,))
+
+        # Counter activity
+        counter_rows = db.fetch_all("""
+            SELECT
+                username,
+                COUNT(*) as total,
+                SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+                SUM(CASE WHEN status = 'verified' THEN 1 ELSE 0 END) as verified,
+                SUM(CASE WHEN status = 'flagged' THEN 1 ELSE 0 END) as flagged,
+                MIN(created_at) as first_count,
+                MAX(created_at) as last_count
+            FROM counts WHERE session_id = ?
+            GROUP BY username ORDER BY last_count DESC
+        """, (session_id,))
+
+        # Count trend last 24h by hour
+        trend_rows = db.fetch_all("""
+            SELECT
+                strftime('%Y-%m-%dT%H:00', created_at) as hour,
+                COUNT(*) as count
+            FROM counts WHERE session_id = ?
+            AND created_at >= datetime('now', '-24 hours')
+            GROUP BY hour ORDER BY hour
+        """, (session_id,))
+
+        return {
+            'session_id': session_id,
+            'totals': totals,
+            'first_pass_yield': first_pass_yield,
+            'first_pass_count': first_pass_count,
+            'snapshot_loaded': snapshot_loaded,
+            'snapshot_total': snapshot_total,
+            'snapshot_counted': snapshot_counted,
+            'unread_messages': unread_messages,
+            'sloc_breakdown': sloc_rows,
+            'counter_activity': counter_rows,
+            'count_trend': trend_rows,
+        }
 
     @staticmethod
     def get_material_summary(session_id: int) -> List[Dict]:
-        return db.fetch_all(
-            """
+        rows = db.fetch_all("""
             SELECT
-                material_number,
-                COUNT(*) as count_frequency,
-                SUM(quantity) as total_quantity,
-                AVG(quantity) as avg_quantity,
-                GROUP_CONCAT(DISTINCT username) as counted_by
-            FROM counts
-            WHERE session_id = ?
-            GROUP BY material_number
-            ORDER BY count_frequency DESC
-            """,
-            (session_id,)
-        )
+                s.material_number,
+                m.description,
+                s.sloc,
+                s.sap_quantity,
+                COALESCE(SUM(c.quantity), 0) as counted_qty,
+                COUNT(c.id) as submission_count,
+                MAX(c.status) as count_status,
+                (COALESCE(SUM(c.quantity), 0) - s.sap_quantity) as variance,
+                v.total_value
+            FROM sap_snapshot s
+            LEFT JOIN sap_materials m ON s.material_number = m.material_number
+            LEFT JOIN counts c ON c.session_id = s.session_id
+                AND c.material_number = s.material_number
+                AND c.sloc = s.sloc
+            LEFT JOIN sap_valuation v ON v.material_number = s.material_number
+            WHERE s.session_id = ?
+            GROUP BY s.material_number, s.sloc
+            ORDER BY s.material_number
+        """, (session_id,))
+
+        result = []
+        for row in rows:
+            sub_count = row['submission_count'] or 0
+            if sub_count == 0:
+                derived = 'not_counted'
+            elif row['count_status'] == 'flagged':
+                derived = 'flagged'
+            elif row['count_status'] == 'verified':
+                derived = 'variance' if (row['variance'] or 0) != 0 else 'verified'
+            else:
+                derived = 'pending'
+
+            result.append({
+                'material_number': row['material_number'],
+                'description': row['description'],
+                'sloc': row['sloc'],
+                'sap_quantity': row['sap_quantity'] or 0,
+                'counted_qty': row['counted_qty'] or 0,
+                'count_status': row['count_status'],
+                'submission_count': sub_count,
+                'variance': row['variance'] or 0,
+                'total_value': row['total_value'],
+                'derived_status': derived,
+            })
+        return result
 
     @staticmethod
     def get_user_summary(session_id: int) -> List[Dict]:
-        return db.fetch_all(
-            """
+        return db.fetch_all("""
             SELECT
                 username,
                 COUNT(*) as total_counts,
@@ -416,30 +538,23 @@ class DashboardService:
                 COUNT(DISTINCT material_number) as unique_materials
             FROM counts
             WHERE session_id = ?
-            GROUP BY username
-            ORDER BY total_counts DESC
-            """,
-            (session_id,)
-        )
+            GROUP BY username ORDER BY total_counts DESC
+        """, (session_id,))
 
     @staticmethod
     def get_discrepancies(session_id: int) -> List[Dict]:
-        return db.fetch_all(
-            """
+        return db.fetch_all("""
             SELECT
-                c.id,
-                c.material_number,
-                c.quantity as counted_quantity,
-                s.sap_quantity,
-                ABS(c.quantity - COALESCE(s.sap_quantity, 0)) as variance,
-                c.username,
-                c.status
-            FROM counts c
-            LEFT JOIN sap_snapshot s ON c.session_id = s.session_id
+                s.sloc,
+                SUM(s.sap_quantity) as sap_total,
+                COALESCE(SUM(c.quantity), 0) as counted_total,
+                COUNT(DISTINCT s.material_number) as material_count,
+                COUNT(DISTINCT CASE WHEN c.id IS NOT NULL THEN s.material_number END) as counted_materials
+            FROM sap_snapshot s
+            LEFT JOIN counts c ON c.session_id = s.session_id
                 AND c.material_number = s.material_number
                 AND c.sloc = s.sloc
-            WHERE c.session_id = ?
-            ORDER BY variance DESC
-            """,
-            (session_id,)
-        )
+            WHERE s.session_id = ?
+            GROUP BY s.sloc
+            ORDER BY ABS(COALESCE(SUM(c.quantity), 0) - SUM(s.sap_quantity)) DESC
+        """, (session_id,))

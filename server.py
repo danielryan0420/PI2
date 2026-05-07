@@ -155,7 +155,7 @@ def list_counts(session_id):
 
 @app.get('/api/sessions/<int:session_id>/counts/mine')
 def list_my_counts(session_id):
-    username = request.args.get('username')
+    username = request.args.get('username') or request.headers.get('x-username')
     if not username:
         return jsonify({'error': 'username required'}), 400
 
