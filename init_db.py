@@ -9,18 +9,21 @@ def init_seed_data():
 
     # Create default users
     users = [
-        ("admin", "admin"),
-        ("counter1", "counter"),
-        ("counter2", "counter"),
+        ("admin", "admin", "StopGap"),
+        ("counter1", "counter", ""),
+        ("counter2", "counter", ""),
     ]
 
-    for username, role in users:
+    for username, role, password in users:
         existing = UserService.get_user(username)
         if not existing:
-            UserService.create_user(username, role)
+            UserService.create_user(username, role, password)
             print(f"✓ Created user: {username} ({role})")
         else:
             print(f"  User {username} already exists")
+            if password and username == "admin":
+                UserService.set_password(username, password)
+                print(f"  Updated admin password")
 
     # Create default SLOC configurations
     slocs = [

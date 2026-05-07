@@ -22,6 +22,26 @@ ALLOWED_EXTENSIONS = {'jpg', 'jpeg', 'png'}
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+# ===== AUTH =====
+@app.post('/api/login')
+def login():
+    data = request.json
+    username = data.get('username')
+    password = data.get('password')
+
+    if not username or not password:
+        return jsonify({'error': 'Username and password required'}), 400
+
+    user = UserService.get_user(username)
+    if not user or not UserService.verify_password(username, password):
+        return jsonify({'error': 'Invalid username or password'}), 401
+
+    return jsonify({
+        'id': user['id'],
+        'username': user['username'],
+        'role': user['role']
+    }), 200
+
 # ===== USERS =====
 @app.get('/api/users')
 def list_users():
@@ -33,6 +53,7 @@ def create_user():
     data = request.json
     username = data.get('username')
     role = data.get('role')
+    password = data.get('password', '')
 
     if not username or not role:
         return jsonify({'error': 'Username and role required'}), 400
@@ -41,9 +62,11 @@ def create_user():
         user = UserService.get_user(username)
         if user:
             UserService.update_user_role(username, role)
-            return jsonify(user)
+            if password:
+                UserService.set_password(username, password)
+            return jsonify({'id': user['id'], 'username': user['username'], 'role': user['role']})
         else:
-            UserService.create_user(username, role)
+            UserService.create_user(username, role, password)
             return jsonify(UserService.get_user(username)), 201
     except Exception as e:
         return jsonify({'error': str(e)}), 400
@@ -53,7 +76,7 @@ def get_user(username):
     user = UserService.get_user(username)
     if not user:
         return jsonify({'error': 'User not found'}), 404
-    return jsonify(user)
+    return jsonify({'id': user['id'], 'username': user['username'], 'role': user['role'], 'created_at': user['created_at']})
 
 # ===== SESSIONS =====
 @app.get('/api/sessions')

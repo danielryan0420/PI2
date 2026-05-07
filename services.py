@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import List, Dict, Optional, Any
 from database import db
+from werkzeug.security import generate_password_hash, check_password_hash
 
 
 class SessionService:
@@ -214,10 +215,11 @@ class AuditService:
 
 class UserService:
     @staticmethod
-    def create_user(username: str, role: str) -> int:
+    def create_user(username: str, role: str, password: str = "") -> int:
+        hashed_password = generate_password_hash(password) if password else generate_password_hash("")
         return db.insert(
-            "INSERT INTO users (username, role) VALUES (?, ?)",
-            (username, role)
+            "INSERT INTO users (username, role, password) VALUES (?, ?, ?)",
+            (username, role, hashed_password)
         )
 
     @staticmethod
@@ -228,8 +230,23 @@ class UserService:
         )
 
     @staticmethod
+    def verify_password(username: str, password: str) -> bool:
+        user = UserService.get_user(username)
+        if not user:
+            return False
+        return check_password_hash(user['password'], password)
+
+    @staticmethod
+    def set_password(username: str, password: str) -> None:
+        hashed_password = generate_password_hash(password)
+        db.execute(
+            "UPDATE users SET password = ? WHERE LOWER(username) = LOWER(?)",
+            (hashed_password, username)
+        )
+
+    @staticmethod
     def list_users() -> List[Dict]:
-        return db.fetch_all("SELECT * FROM users ORDER BY username ASC")
+        return db.fetch_all("SELECT id, username, role, created_at FROM users ORDER BY username ASC")
 
     @staticmethod
     def update_user_role(username: str, role: str) -> None:

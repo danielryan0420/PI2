@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS users (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     username   TEXT NOT NULL UNIQUE COLLATE NOCASE,
     role       TEXT NOT NULL CHECK(role IN ('counter','admin')),
+    password   TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -189,6 +190,26 @@ CREATE TABLE IF NOT EXISTS wm_bin_materials (
     created_at      TEXT NOT NULL DEFAULT (datetime('now')),
     UNIQUE(bin_id, material_number)
 );
+"""),
+    ("008_add_password.sql", """
+-- Add password column to users table
+PRAGMA foreign_keys = OFF;
+
+CREATE TABLE IF NOT EXISTS users_new (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    username   TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    role       TEXT NOT NULL CHECK(role IN ('counter','admin')),
+    password   TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+INSERT INTO users_new (id, username, role, password, created_at)
+SELECT id, username, role, '', created_at FROM users;
+
+DROP TABLE users;
+ALTER TABLE users_new RENAME TO users;
+
+PRAGMA foreign_keys = ON;
 """),
 ]
 
