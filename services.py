@@ -173,11 +173,23 @@ class MessageService:
 
     @staticmethod
     def get_messages(session_id: int, count_id: Optional[int] = None) -> List[Dict]:
-        if count_id:
+        if count_id is not None:
             return db.fetch_all(
-                "SELECT * FROM messages WHERE session_id = ? AND count_id = ? ORDER BY sent_at ASC",
+                """SELECT m.*, c.material_number, c.sloc
+                   FROM messages m LEFT JOIN counts c ON m.count_id = c.id
+                   WHERE m.session_id = ? AND m.count_id = ? ORDER BY m.sent_at ASC""",
                 (session_id, count_id)
             )
+        # Return ALL messages for the session (general + count-linked)
+        return db.fetch_all(
+            """SELECT m.*, c.material_number, c.sloc
+               FROM messages m LEFT JOIN counts c ON m.count_id = c.id
+               WHERE m.session_id = ? ORDER BY m.sent_at ASC""",
+            (session_id,)
+        )
+
+    @staticmethod
+    def get_general_messages(session_id: int) -> List[Dict]:
         return db.fetch_all(
             "SELECT * FROM messages WHERE session_id = ? AND count_id IS NULL ORDER BY sent_at ASC",
             (session_id,)

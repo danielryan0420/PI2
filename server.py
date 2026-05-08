@@ -319,7 +319,7 @@ def get_my_messages(session_id):
 
 @app.get('/api/sessions/<int:session_id>/messages/general')
 def get_general_messages(session_id):
-    messages = MessageService.get_messages(session_id, count_id=None)
+    messages = MessageService.get_general_messages(session_id)
     return jsonify(messages)
 
 @app.get('/api/counts/<int:count_id>/messages')
