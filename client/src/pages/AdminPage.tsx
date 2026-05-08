@@ -44,6 +44,7 @@ export function AdminPage() {
   const [allSessions, setAllSessions] = useState<InventorySession[]>([]);
   const [addUserOpen, setAddUserOpen] = useState(false);
   const [newUsername, setNewUsername] = useState('');
+  const [newUserPassword, setNewUserPassword] = useState('');
   const [newUserRole, setNewUserRole] = useState<Role>('counter');
   const [addingUser, setAddingUser] = useState(false);
   const [deleteUserTarget, setDeleteUserTarget] = useState<User | null>(null);
@@ -73,9 +74,10 @@ export function AdminPage() {
     if (!newUsername.trim()) { toast('Username required', 'error'); return; }
     setAddingUser(true);
     try {
-      await api.post('/users', { username: newUsername.trim(), role: newUserRole }, headers);
+      const pwd = newUserPassword || (newUserRole === 'admin' ? 'StopGap' : '');
+      await api.post('/users', { username: newUsername.trim(), role: newUserRole, password: pwd }, headers);
       toast(`${newUsername} added as ${newUserRole}`, 'success');
-      setAddUserOpen(false); setNewUsername(''); setNewUserRole('counter');
+      setAddUserOpen(false); setNewUsername(''); setNewUserPassword(''); setNewUserRole('counter');
       loadUsers();
     } catch (e) { toast(e instanceof Error ? e.message : 'Failed', 'error'); }
     finally { setAddingUser(false); }
@@ -596,6 +598,13 @@ export function AdminPage() {
         <div className="flex flex-col gap-4">
           <Input label="Username" value={newUsername} onChange={(e) => setNewUsername(e.target.value)} placeholder="e.g. jsmith" />
           <Select label="Role" value={newUserRole} onChange={(e) => setNewUserRole(e.target.value as Role)} options={ROLE_OPTIONS} />
+          <Input
+            label="Password (optional)"
+            type="password"
+            value={newUserPassword}
+            onChange={(e) => setNewUserPassword(e.target.value)}
+            placeholder={newUserRole === 'admin' ? 'Leave blank for default (StopGap)' : 'Leave blank for no password'}
+          />
           <div className="flex gap-2 justify-end">
             <Button variant="secondary" onClick={() => setAddUserOpen(false)}>Cancel</Button>
             <Button onClick={handleAddUser} loading={addingUser}>Add User</Button>
