@@ -370,48 +370,135 @@ export function DashboardPage() {
         )}
 
         {/* ─── Audit log ─── */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <h2 className="font-semibold text-gray-800">Audit Log</h2>
-              <span className="text-xs text-gray-400">{audit.length} entries</span>
-            </div>
-          </CardHeader>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
-                <tr>
-                  <th className="px-3 py-3 text-left">Time</th>
-                  <th className="px-3 py-3 text-left">Count</th>
-                  <th className="px-3 py-3 text-left">Editor</th>
-                  <th className="px-3 py-3 text-left">Event</th>
-                  <th className="px-3 py-3 text-left">Field</th>
-                  <th className="px-3 py-3 text-left">Old → New</th>
-                  <th className="px-3 py-3 text-left">Reason</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {audit.map((a) => (
-                  <tr key={a.id} className="hover:bg-gray-50">
-                    <td className="px-3 py-2 text-xs text-gray-400 whitespace-nowrap">{formatDateTime(a.created_at)}</td>
-                    <td className="px-3 py-2 text-xs font-mono text-gray-500">#{a.count_id}</td>
-                    <td className="px-3 py-2 text-gray-700">{a.editor_username}</td>
-                    <td className="px-3 py-2"><span className={`text-xs font-medium px-2 py-0.5 rounded-full ${a.event_type === 'verify' ? 'bg-green-100 text-green-700' : a.event_type === 'flag' ? 'bg-red-100 text-red-700' : a.event_type === 'edit' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>{a.event_type}</span></td>
-                    <td className="px-3 py-2 text-xs text-gray-500">{a.field_name ?? '—'}</td>
-                    <td className="px-3 py-2 text-xs">
-                      {a.old_value && <span className="line-through text-red-500 mr-1">{a.old_value}</span>}
-                      {a.new_value && <span className="text-green-700 font-medium">{a.new_value}</span>}
-                    </td>
-                    <td className="px-3 py-2 text-xs text-gray-500 max-w-[12rem] truncate">{a.reason ?? '—'}</td>
-                  </tr>
-                ))}
-                {audit.length === 0 && <tr><td colSpan={7} className="px-3 py-6 text-center text-gray-400">No audit entries</td></tr>}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+        <AuditLog audit={audit} />
       </div>
     </AppShell>
+  );
+}
+
+const EVENT_COLORS: Record<string, string> = {
+  verify: 'bg-green-100 text-green-700',
+  flag:   'bg-red-100 text-red-700',
+  edit:   'bg-blue-100 text-blue-700',
+  create: 'bg-gray-100 text-gray-600',
+  reopen: 'bg-yellow-100 text-yellow-700',
+};
+
+function AuditLog({ audit }: { audit: AuditEntry[] }) {
+  const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  const [showAll, setShowAll] = useState(false);
+  const VISIBLE = 25;
+
+  // Group by count_id, sorted by most-recent activity
+  const groups = React.useMemo(() => {
+    const map = new Map<number, AuditEntry[]>();
+    for (const a of audit) {
+      (map.get(a.count_id) ?? map.set(a.count_id, []).get(a.count_id)!).push(a);
+    }
+    return [...map.values()].sort((a, b) =>
+      new Date(b[b.length - 1].created_at).getTime() - new Date(a[a.length - 1].created_at).getTime()
+    );
+  }, [audit]);
+
+  const visible = showAll ? groups : groups.slice(0, VISIBLE);
+
+  function toggle(countId: number) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      next.has(countId) ? next.delete(countId) : next.add(countId);
+      return next;
+    });
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold text-gray-800">Audit Log</h2>
+          <span className="text-xs text-gray-400">{groups.length} counts · {audit.length} total updates</span>
+        </div>
+      </CardHeader>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
+            <tr>
+              <th className="px-3 py-3 w-6" />
+              <th className="px-3 py-3 text-left">Count</th>
+              <th className="px-3 py-3 text-left">Material</th>
+              <th className="px-3 py-3 text-left">SLOC</th>
+              <th className="px-3 py-3 text-left">Last Event</th>
+              <th className="px-3 py-3 text-left">Last Editor</th>
+              <th className="px-3 py-3 text-center">Updates</th>
+              <th className="px-3 py-3 text-left">Last Activity</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {visible.length === 0 && (
+              <tr><td colSpan={8} className="px-3 py-6 text-center text-gray-400">No audit entries</td></tr>
+            )}
+            {visible.map((entries) => {
+              const last = entries[entries.length - 1];
+              const isOpen = expanded.has(last.count_id);
+              return (
+                <React.Fragment key={last.count_id}>
+                  {/* Summary row */}
+                  <tr
+                    className="hover:bg-gray-50 cursor-pointer select-none"
+                    onClick={() => toggle(last.count_id)}
+                  >
+                    <td className="px-3 py-2 text-gray-400 text-xs">{isOpen ? '▾' : '▸'}</td>
+                    <td className="px-3 py-2 font-mono text-xs text-gray-500">#{last.count_id}</td>
+                    <td className="px-3 py-2 font-mono text-gray-800 text-xs">{last.material_number}</td>
+                    <td className="px-3 py-2 text-gray-600 text-xs">{last.sloc}</td>
+                    <td className="px-3 py-2">
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${EVENT_COLORS[last.event_type] ?? 'bg-gray-100 text-gray-600'}`}>
+                        {last.event_type}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-gray-700 text-xs">{last.editor_username}</td>
+                    <td className="px-3 py-2 text-center">
+                      <span className="text-xs font-semibold text-gray-700 bg-gray-100 px-2 py-0.5 rounded-full">{entries.length}</span>
+                    </td>
+                    <td className="px-3 py-2 text-xs text-gray-400 whitespace-nowrap">{formatDateTime(last.created_at)}</td>
+                  </tr>
+
+                  {/* Expanded detail rows */}
+                  {isOpen && entries.map((a) => (
+                    <tr key={a.id} className="bg-blue-50 border-l-2 border-blue-300">
+                      <td />
+                      <td className="px-3 py-1.5 text-xs text-gray-400 whitespace-nowrap" colSpan={2}>{formatDateTime(a.created_at)}</td>
+                      <td className="px-3 py-1.5 text-xs text-gray-600">{a.editor_username}</td>
+                      <td className="px-3 py-1.5">
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${EVENT_COLORS[a.event_type] ?? 'bg-gray-100 text-gray-600'}`}>
+                          {a.event_type}
+                        </span>
+                      </td>
+                      <td className="px-3 py-1.5 text-xs text-gray-500">{a.field_name ?? '—'}</td>
+                      <td className="px-3 py-1.5 text-xs">
+                        {a.old_value && <span className="line-through text-red-500 mr-1">{a.old_value}</span>}
+                        {a.new_value && <span className="text-green-700 font-medium">{a.new_value}</span>}
+                        {!a.old_value && !a.new_value && '—'}
+                      </td>
+                      <td className="px-3 py-1.5 text-xs text-gray-500 max-w-[12rem] truncate">{a.reason ?? '—'}</td>
+                    </tr>
+                  ))}
+                </React.Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {groups.length > VISIBLE && (
+        <div className="px-3 py-2 border-t border-gray-100 text-center">
+          <button
+            className="text-xs text-blue-600 hover:underline"
+            onClick={() => setShowAll((v) => !v)}
+          >
+            {showAll ? `Show fewer` : `Show all ${groups.length} counts`}
+          </button>
+        </div>
+      )}
+    </Card>
   );
 }
 
