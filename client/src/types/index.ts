@@ -5,6 +5,7 @@ export interface User {
   username: string;
   role: Role;
   created_at: string;
+  last_active: string | null;
 }
 
 export interface InventorySession {
@@ -50,7 +51,7 @@ export interface Message {
   count_id: number | null;
   session_id: number;
   sender: string;
-  role: 'counter' | 'office';
+  role: 'counter' | 'admin';
   body: string;
   sent_at: string;
   // enriched fields from office view

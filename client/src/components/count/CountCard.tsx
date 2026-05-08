@@ -99,7 +99,7 @@ export function CountCard({ count, onRecount }: CountCardProps) {
             ) : (
               <>
                 {messages.map((m) => (
-                  <div key={m.id} className={`text-xs rounded-lg px-3 py-2 ${m.role === 'office' ? 'bg-purple-50 text-purple-800 self-start' : 'bg-blue-50 text-blue-800 self-end'}`}>
+                  <div key={m.id} className={`text-xs rounded-lg px-3 py-2 ${m.role === 'admin' ? 'bg-purple-50 text-purple-800 self-start' : 'bg-blue-50 text-blue-800 self-end'}`}>
                     <span className="font-medium">{m.sender}: </span>{m.body}
                   </div>
                 ))}

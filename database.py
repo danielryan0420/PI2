@@ -211,6 +211,9 @@ ALTER TABLE users_new RENAME TO users;
 
 PRAGMA foreign_keys = ON;
 """),
+    ("009_user_last_active.sql", """
+ALTER TABLE users ADD COLUMN last_active TEXT NULL;
+"""),
 ]
 
 class Database:

@@ -17,6 +17,15 @@ from services import (
 app = Flask(__name__, static_folder='client/dist', static_url_path='')
 CORS(app)
 
+@app.before_request
+def _track_activity():
+    username = request.headers.get('x-username')
+    if username and request.path.startswith('/api/'):
+        try:
+            UserService.update_last_active(username)
+        except Exception:
+            pass
+
 UPLOAD_FOLDER = Path('uploads')
 UPLOAD_FOLDER.mkdir(exist_ok=True)
 ALLOWED_EXTENSIONS = {'jpg', 'jpeg', 'png'}
@@ -38,6 +47,7 @@ def login():
     if not user or not UserService.verify_password(username, password):
         return jsonify({'error': 'Invalid username or password'}), 401
 
+    UserService.update_last_active(username)
     return jsonify({
         'id': user['id'],
         'username': user['username'],

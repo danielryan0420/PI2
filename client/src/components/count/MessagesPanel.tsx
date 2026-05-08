@@ -76,7 +76,7 @@ export function MessagesPanel() {
   }
 
   function hasOfficeReply(key: number) {
-    return (threadMap[key] ?? []).some((m) => m.role === 'office');
+    return (threadMap[key] ?? []).some((m) => m.role === 'admin');
   }
 
   return (

@@ -270,7 +270,14 @@ class UserService:
 
     @staticmethod
     def list_users() -> List[Dict]:
-        return db.fetch_all("SELECT id, username, role, created_at FROM users ORDER BY username ASC")
+        return db.fetch_all("SELECT id, username, role, created_at, last_active FROM users ORDER BY username ASC")
+
+    @staticmethod
+    def update_last_active(username: str) -> None:
+        db.execute(
+            "UPDATE users SET last_active = datetime('now') WHERE LOWER(username) = LOWER(?)",
+            (username,)
+        )
 
     @staticmethod
     def update_user_role(username: str, role: str) -> None:
