@@ -14,8 +14,10 @@ from services import (
     WmBinService, DashboardService, ImportService
 )
 
-app = Flask(__name__, static_folder='client/dist', static_url_path='')
+app = Flask(__name__)
 CORS(app)
+
+DIST_DIR = Path(__file__).parent / 'client' / 'dist'
 
 @app.before_request
 def _track_activity():
@@ -586,18 +588,17 @@ def health():
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve_frontend(path):
-    # Don't serve React for API routes
     if path.startswith('api/'):
         return jsonify({'error': 'Not found'}), 404
 
-    # Special files that should be served from dist
-    if path and '.' in path.split('/')[-1]:
-        file_path = Path('client/dist') / path
-        if file_path.exists() and file_path.is_file():
-            return send_from_directory('client/dist', path)
+    # Serve actual static assets (JS, CSS, images, etc.)
+    if path:
+        asset = DIST_DIR / path
+        if asset.exists() and asset.is_file():
+            return send_from_directory(DIST_DIR, path)
 
-    # For all other routes (client-side routes), serve index.html
-    return send_from_directory('client/dist', 'index.html')
+    # All other paths (React routes) → serve index.html
+    return send_from_directory(DIST_DIR, 'index.html')
 
 def _auto_init():
     """Ensure default seed data exists on every server start."""
