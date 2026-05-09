@@ -4,7 +4,7 @@ import io
 import json
 from pathlib import Path
 from datetime import datetime
-from flask import Flask, jsonify, request, send_from_directory, Response
+from flask import Flask, jsonify, request, send_from_directory, send_file, Response
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 import uuid
@@ -600,6 +600,14 @@ def serve_frontend(path):
     # All other paths (React routes) → serve index.html
     return send_from_directory(DIST_DIR, 'index.html')
 
+@app.get('/cert')
+def download_cert():
+    cert_path = Path(__file__).parent / 'cert.pem'
+    if cert_path.exists():
+        return send_file(cert_path, as_attachment=True, download_name='physical-inventory.crt',
+                         mimetype='application/x-x509-ca-cert')
+    return jsonify({'error': 'No certificate. Run setup_ssl.py first.'}), 404
+
 def _auto_init():
     """Ensure default seed data exists on every server start."""
     from init_db import init_seed_data
@@ -611,4 +619,21 @@ def _auto_init():
 _auto_init()
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=8081)
+    cert_file = Path(__file__).parent / 'cert.pem'
+    key_file  = Path(__file__).parent / 'key.pem'
+    if cert_file.exists() and key_file.exists():
+        import socket
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(('8.8.8.8', 80))
+            local_ip = s.getsockname()[0]
+            s.close()
+        except Exception:
+            local_ip = '127.0.0.1'
+        print(f"\n HTTPS enabled — open https://{local_ip}:8081 on your devices\n")
+        app.run(debug=False, host='0.0.0.0', port=8081,
+                ssl_context=(str(cert_file), str(key_file)))
+    else:
+        print("\n HTTP mode — camera will not work on iPhone.")
+        print(" Run 'python setup_ssl.py' once to enable HTTPS.\n")
+        app.run(debug=True, host='0.0.0.0', port=8081)
