@@ -87,13 +87,13 @@ export function DashboardPage() {
                   <div className="text-xs text-gray-500 mt-1">Total Counts</div>
                   {stats.totals.total > 0 && (
                     <div className="mt-2 flex h-2 rounded-full overflow-hidden gap-px">
-                      {stats.totals.pending > 0 && <div className="bg-blue-400" style={{ width: `${(stats.totals.pending / stats.totals.total) * 100}%` }} title={`${stats.totals.pending} accepted`} />}
+                      {stats.totals.pending > 0 && <div className="bg-blue-400" style={{ width: `${(stats.totals.pending / stats.totals.total) * 100}%` }} title={`${stats.totals.pending} counted`} />}
                       {stats.totals.verified > 0 && <div className="bg-green-500" style={{ width: `${(stats.totals.verified / stats.totals.total) * 100}%` }} title={`${stats.totals.verified} verified`} />}
                       {stats.totals.flagged > 0 && <div className="bg-red-400" style={{ width: `${(stats.totals.flagged / stats.totals.total) * 100}%` }} title={`${stats.totals.flagged} flagged`} />}
                     </div>
                   )}
                   <div className="flex justify-center gap-2 mt-1.5 text-xs">
-                    <span className="text-blue-600">{stats.totals.pending}A</span>
+                    <span className="text-blue-600">{stats.totals.pending}C</span>
                     <span className="text-green-600">{stats.totals.verified}V</span>
                     <span className="text-red-600">{stats.totals.flagged}F</span>
                   </div>
@@ -164,7 +164,7 @@ export function DashboardPage() {
                         </div>
                         <div className="flex h-3 rounded-full overflow-hidden bg-gray-100 gap-px">
                           {s.pending > 0 && (
-                            <div className="bg-blue-400 transition-all" style={{ width: `${(s.pending / s.total) * 100}%` }} title={`${s.pending} accepted`} />
+                            <div className="bg-blue-400 transition-all" style={{ width: `${(s.pending / s.total) * 100}%` }} title={`${s.pending} counted`} />
                           )}
                           {s.verified > 0 && (
                             <div className="bg-green-500 transition-all" style={{ width: `${(s.verified / s.total) * 100}%` }} title={`${s.verified} verified`} />
@@ -174,7 +174,7 @@ export function DashboardPage() {
                           )}
                         </div>
                         <div className="flex gap-3 text-[10px] text-gray-400 mt-0.5">
-                          {s.pending > 0 && <span className="text-blue-500">{s.pending} accepted</span>}
+                          {s.pending > 0 && <span className="text-blue-500">{s.pending} counted</span>}
                           {s.verified > 0 && <span className="text-green-600">{s.verified} verified</span>}
                           {s.flagged > 0 && <span className="text-red-500">{s.flagged} flagged</span>}
                         </div>
@@ -210,7 +210,7 @@ export function DashboardPage() {
                                 {ca.flagged > 0 && <div className="bg-red-400" style={{ width: `${(ca.flagged / ca.total) * 100}%` }} />}
                               </div>
                               <div className="flex gap-2 text-[10px] mt-0.5">
-                                <span className="text-blue-500">{ca.pending}A</span>
+                                <span className="text-blue-500">{ca.pending}C</span>
                                 <span className="text-green-600">{ca.verified}V</span>
                                 <span className="text-red-500">{ca.flagged}F</span>
                               </div>

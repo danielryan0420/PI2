@@ -190,7 +190,7 @@ export function OfficePage() {
               <input placeholder="Filter user…" value={filterUser} onChange={(e) => setFilterUser(e.target.value)} className="min-h-[44px] px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
               <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="min-h-[44px] px-3 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="">All statuses</option>
-                <option value="pending">Accepted</option>
+                <option value="pending">Counted</option>
                 <option value="verified">Verified</option>
                 <option value="flagged">Flagged</option>
               </select>
