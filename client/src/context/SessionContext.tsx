@@ -26,6 +26,15 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   });
   const [slocConfigs, setSlocConfigs] = useState<SlocConfig[]>([]);
 
+  // Fetch SLOCs whenever a session is active (handles page refresh)
+  useEffect(() => {
+    if (!session) return;
+    fetch('/api/sloc-config')
+      .then((r) => r.ok ? r.json() : [])
+      .then((data: SlocConfig[]) => setSlocConfigs(data))
+      .catch(() => {});
+  }, [session?.id]);
+
   function setUser(u: string, r: Role) {
     setUsername(u);
     setRole(r);
