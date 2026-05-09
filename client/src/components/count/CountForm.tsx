@@ -37,8 +37,29 @@ export function CountForm({ onSubmitted, prefill, onPrefillConsumed }: CountForm
   const wmBinRef = useRef<HTMLInputElement>(null);
   const zbinRef = useRef<HTMLInputElement>(null);
 
-  // Always auto-focus material number on load
-  useEffect(() => { materialRef.current?.focus(); }, []);
+  // Load form state from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('countFormState');
+    if (saved) {
+      try {
+        const { materialNumber: m, quantity: q, sloc: s, wmBin: w, zbin: z, question: qu } = JSON.parse(saved);
+        if (m) setMaterialNumber(m);
+        if (q) setQuantity(q);
+        if (s) setSloc(s);
+        if (w) setWmBin(w);
+        if (z) setZbin(z);
+        if (qu) setQuestion(qu);
+      } catch { /* ignore malformed */ }
+    }
+    materialRef.current?.focus();
+  }, []);
+
+  // Save form state to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('countFormState', JSON.stringify({
+      materialNumber, quantity, sloc, wmBin, zbin, question
+    }));
+  }, [materialNumber, quantity, sloc, wmBin, zbin, question]);
 
   // Apply prefill when provided (recount)
   useEffect(() => {
@@ -160,6 +181,10 @@ export function CountForm({ onSubmitted, prefill, onPrefillConsumed }: CountForm
       setWmBin('');
       setZbin('');
       setMaterialDesc(null);
+      setQuestion('');
+      localStorage.setItem('countFormState', JSON.stringify({
+        materialNumber: '', quantity: '', sloc, wmBin: '', zbin: '', question: ''
+      }));
 
       // Re-focus material number for next scan
       setTimeout(() => materialRef.current?.focus(), 50);
