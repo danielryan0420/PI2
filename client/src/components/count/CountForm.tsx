@@ -82,9 +82,26 @@ export function CountForm({ onSubmitted, prefill, onPrefillConsumed }: CountForm
 
   function handleScan(value: string) {
     const cleaned = value.trim();
-    if (scanTarget === 'material') { setMaterialNumber(cleaned.toUpperCase()); quantityRef.current?.focus(); }
-    if (scanTarget === 'wm_bin') { setWmBin(cleaned.toUpperCase()); zbinRef.current?.focus(); }
-    if (scanTarget === 'zbin') { setZbin(cleaned.toUpperCase()); quantityRef.current?.focus(); }
+    if (scanTarget === 'material') {
+      setMaterialNumber(cleaned.toUpperCase());
+      // Defer focus until after dialog closes
+      setTimeout(() => {
+        if (needsWmBin) wmBinRef.current?.focus();
+        else if (needsZbin) zbinRef.current?.focus();
+        else quantityRef.current?.focus();
+      }, 100);
+    }
+    if (scanTarget === 'wm_bin') {
+      setWmBin(cleaned.toUpperCase());
+      setTimeout(() => {
+        if (needsZbin) zbinRef.current?.focus();
+        else quantityRef.current?.focus();
+      }, 100);
+    }
+    if (scanTarget === 'zbin') {
+      setZbin(cleaned.toUpperCase());
+      setTimeout(() => quantityRef.current?.focus(), 100);
+    }
     setScanTarget(null);
   }
 
