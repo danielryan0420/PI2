@@ -17,39 +17,36 @@ const LIVE_CAMERA_AVAILABLE =
 
 async function decodeBarcode(file: File): Promise<string> {
   const reader = new BrowserMultiFormatReader();
-  const url = URL.createObjectURL(file);
 
-  // First attempt: decode directly from the blob URL
+  // createImageBitmap automatically applies EXIF orientation (critical for iOS photos)
+  const imageBitmap = await createImageBitmap(file);
+
+  // Try at original resolution first
+  const canvas = document.createElement('canvas');
+  canvas.width = imageBitmap.width;
+  canvas.height = imageBitmap.height;
+  canvas.getContext('2d')!.drawImage(imageBitmap, 0, 0);
+
   try {
-    const result = await reader.decodeFromImageUrl(url);
-    URL.revokeObjectURL(url);
+    const result = await reader.decodeFromImageUrl(canvas.toDataURL('image/jpeg', 0.95));
     return result.getText();
-  } catch { /* try resized */ }
+  } catch { /* try downscaled */ }
 
-  // Second attempt: scale the image down — iOS photos can be 12+ MP which
-  // confuses ZXing. Resize to a width ZXing handles well.
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = async () => {
-      try {
-        const MAX = 1280;
-        const ratio = Math.min(1, MAX / img.width, MAX / img.height);
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.round(img.width * ratio);
-        canvas.height = Math.round(img.height * ratio);
-        canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
-        const resized = canvas.toDataURL('image/jpeg', 0.9);
-        const result = await new BrowserMultiFormatReader().decodeFromImageUrl(resized);
-        resolve(result.getText());
-      } catch (e) {
-        reject(e);
-      } finally {
-        URL.revokeObjectURL(url);
-      }
-    };
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('image load failed')); };
-    img.src = url;
-  });
+  // If full-res failed, try downscaling — iOS photos can be 12+ MP
+  const MAX = 1280;
+  const ratio = Math.min(1, MAX / imageBitmap.width, MAX / imageBitmap.height);
+
+  if (ratio < 1) {
+    const scaledCanvas = document.createElement('canvas');
+    scaledCanvas.width = Math.round(imageBitmap.width * ratio);
+    scaledCanvas.height = Math.round(imageBitmap.height * ratio);
+    scaledCanvas.getContext('2d')!.drawImage(imageBitmap, 0, 0, scaledCanvas.width, scaledCanvas.height);
+
+    const result = await reader.decodeFromImageUrl(scaledCanvas.toDataURL('image/jpeg', 0.9));
+    return result.getText();
+  }
+
+  throw new Error('No barcode detected');
 }
 
 export function BarcodeScanner({ open, onClose, onScan, label = 'Scan' }: BarcodeScannerProps) {
