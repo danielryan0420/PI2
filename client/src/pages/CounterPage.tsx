@@ -93,7 +93,7 @@ export function CounterPage() {
               <div className="grid grid-cols-3 gap-2">
                 <div className="bg-blue-50 rounded-xl p-3 text-center">
                   <div className="text-xl font-bold text-blue-700">{pending}</div>
-                  <div className="text-xs text-blue-500">Pending</div>
+                  <div className="text-xs text-blue-500">Accepted</div>
                 </div>
                 <div className="bg-green-50 rounded-xl p-3 text-center">
                   <div className="text-xl font-bold text-green-700">{verified}</div>

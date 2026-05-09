@@ -13,7 +13,7 @@ const variants: Record<BadgeVariant, string> = {
 
 const labels: Partial<Record<BadgeVariant, string>> = {
   not_counted: 'Not Counted',
-  pending: 'Pending',
+  pending: 'Accepted',
   verified: 'Verified',
   flagged: 'Flagged',
   variance: 'Variance',
