@@ -388,8 +388,19 @@ export function AdminPage() {
               <Card key={imp.key}>
                 <CardHeader><h3 className="font-semibold text-gray-700 text-sm">{imp.label}</h3></CardHeader>
                 <CardBody className="flex flex-col gap-2">
-                  {importStatus[imp.tableKey] && (
-                    <p className="text-xs text-gray-500">{importStatus[imp.tableKey].count} rows · Updated {importStatus[imp.tableKey].updated_at ? formatDateTime(importStatus[imp.tableKey].updated_at!) : 'never'}</p>
+                  {importStatus[imp.tableKey] ? (
+                    <div className="bg-blue-50 rounded px-2 py-1 mb-1">
+                      <p className="text-xs font-medium text-blue-900">
+                        📊 Records Loaded: <span className="font-bold text-blue-700">{importStatus[imp.tableKey].count.toLocaleString()}</span>
+                      </p>
+                      <p className="text-xs text-blue-700">
+                        ⏰ Last Loaded: <span className="font-mono">{importStatus[imp.tableKey].updated_at ? formatDateTime(importStatus[imp.tableKey].updated_at!) : 'Never'}</span>
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="bg-gray-50 rounded px-2 py-1 mb-1">
+                      <p className="text-xs text-gray-600">No data loaded yet</p>
+                    </div>
                   )}
                   <label className={`inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-lg border border-dashed border-gray-400 cursor-pointer text-sm text-gray-600 hover:bg-gray-50 ${importing === imp.key ? 'opacity-50 pointer-events-none' : ''}`}>
                     {importing === imp.key ? '⟳ Importing…' : '↑ Upload CSV or XLSX'}
@@ -406,8 +417,13 @@ export function AdminPage() {
             <Card>
               <CardHeader><h3 className="font-semibold text-gray-700 text-sm">MARD (Warehouse Stock)</h3></CardHeader>
               <CardBody className="flex flex-col gap-2">
-                {importStatus['sap_mard'] && (
-                  <p className="text-xs text-gray-500">{importStatus['sap_mard'].count} rows · Updated {importStatus['sap_mard'].updated_at ? formatDateTime(importStatus['sap_mard'].updated_at!) : 'never'}</p>
+                {importStatus['sap_mard'] ? (
+                  <div className="bg-blue-50 rounded px-2 py-1">
+                    <p className="text-xs font-medium text-blue-900">📊 Records: <span className="font-bold">{importStatus['sap_mard'].count.toLocaleString()}</span></p>
+                    <p className="text-xs text-blue-700">⏰ Last: {importStatus['sap_mard'].updated_at ? formatDateTime(importStatus['sap_mard'].updated_at!) : 'Never'}</p>
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 rounded px-2 py-1 text-xs text-gray-600">No data loaded yet</div>
                 )}
                 <p className="text-xs text-gray-500">Material warehouse stock at plant/storage location level. From SAP table MARD (T300).</p>
                 <label className={`inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-lg border border-dashed border-gray-400 cursor-pointer text-sm text-gray-600 hover:bg-gray-50 ${importing === 'mard' ? 'opacity-50 pointer-events-none' : ''}`}>
@@ -424,8 +440,13 @@ export function AdminPage() {
             <Card>
               <CardHeader><h3 className="font-semibold text-gray-700 text-sm">T300T (Storage Locations)</h3></CardHeader>
               <CardBody className="flex flex-col gap-2">
-                {importStatus['sap_storage_locations'] && (
-                  <p className="text-xs text-gray-500">{importStatus['sap_storage_locations'].count} rows · Updated {importStatus['sap_storage_locations'].updated_at ? formatDateTime(importStatus['sap_storage_locations'].updated_at!) : 'never'}</p>
+                {importStatus['sap_storage_locations'] ? (
+                  <div className="bg-blue-50 rounded px-2 py-1">
+                    <p className="text-xs font-medium text-blue-900">📊 Records: <span className="font-bold">{importStatus['sap_storage_locations'].count.toLocaleString()}</span></p>
+                    <p className="text-xs text-blue-700">⏰ Last: {importStatus['sap_storage_locations'].updated_at ? formatDateTime(importStatus['sap_storage_locations'].updated_at!) : 'Never'}</p>
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 rounded px-2 py-1 text-xs text-gray-600">No data loaded yet</div>
                 )}
                 <p className="text-xs text-gray-500">SAP warehouse storage location master data. Columns: LGORT, WERKS, LGOBE, LOTYP.</p>
                 <label className={`inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-lg border border-dashed border-gray-400 cursor-pointer text-sm text-gray-600 hover:bg-gray-50 ${importing === 'storage_locations' ? 'opacity-50 pointer-events-none' : ''}`}>
@@ -442,8 +463,13 @@ export function AdminPage() {
             <Card>
               <CardHeader><h3 className="font-semibold text-gray-700 text-sm">MSEG (Material Movements)</h3></CardHeader>
               <CardBody className="flex flex-col gap-2">
-                {importStatus['sap_mseg'] && (
-                  <p className="text-xs text-gray-500">{importStatus['sap_mseg'].count} movements · Updated {importStatus['sap_mseg'].updated_at ? formatDateTime(importStatus['sap_mseg'].updated_at!) : 'never'}</p>
+                {importStatus['sap_mseg'] ? (
+                  <div className="bg-blue-50 rounded px-2 py-1">
+                    <p className="text-xs font-medium text-blue-900">📊 Records: <span className="font-bold">{importStatus['sap_mseg'].count.toLocaleString()}</span></p>
+                    <p className="text-xs text-blue-700">⏰ Last: {importStatus['sap_mseg'].updated_at ? formatDateTime(importStatus['sap_mseg'].updated_at!) : 'Never'}</p>
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 rounded px-2 py-1 text-xs text-gray-600">No data loaded yet</div>
                 )}
                 <p className="text-xs text-gray-500">Material movements (201/202 receipt, 221/222 usage, 309 transfers, 911/912 adjustments). Identifies high-issue materials.</p>
                 <label className={`inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-lg border border-dashed border-gray-400 cursor-pointer text-sm text-gray-600 hover:bg-gray-50 ${importing === 'mseg' ? 'opacity-50 pointer-events-none' : ''}`}>
@@ -460,8 +486,13 @@ export function AdminPage() {
             <Card>
               <CardHeader><h3 className="font-semibold text-gray-700 text-sm">LGAP (Storage Bins)</h3></CardHeader>
               <CardBody className="flex flex-col gap-2">
-                {importStatus['sap_lgap'] && (
-                  <p className="text-xs text-gray-500">{importStatus['sap_lgap'].count} bins · Updated {importStatus['sap_lgap'].updated_at ? formatDateTime(importStatus['sap_lgap'].updated_at!) : 'never'}</p>
+                {importStatus['sap_lgap'] ? (
+                  <div className="bg-blue-50 rounded px-2 py-1">
+                    <p className="text-xs font-medium text-blue-900">📊 Records: <span className="font-bold">{importStatus['sap_lgap'].count.toLocaleString()}</span></p>
+                    <p className="text-xs text-blue-700">⏰ Last: {importStatus['sap_lgap'].updated_at ? formatDateTime(importStatus['sap_lgap'].updated_at!) : 'Never'}</p>
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 rounded px-2 py-1 text-xs text-gray-600">No data loaded yet</div>
                 )}
                 <p className="text-xs text-gray-500">SAP warehouse storage bin master data. All bins created in the warehouse system.</p>
                 <label className={`inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-lg border border-dashed border-gray-400 cursor-pointer text-sm text-gray-600 hover:bg-gray-50 ${importing === 'lgap' ? 'opacity-50 pointer-events-none' : ''}`}>
@@ -478,8 +509,12 @@ export function AdminPage() {
             <Card>
               <CardHeader><h3 className="font-semibold text-gray-700 text-sm">WM Bins (Bulk Import)</h3></CardHeader>
               <CardBody className="flex flex-col gap-2">
-                {importStatus['wm_bins'] && (
-                  <p className="text-xs text-gray-500">{importStatus['wm_bins'].count} bins configured</p>
+                {importStatus['wm_bins'] ? (
+                  <div className="bg-blue-50 rounded px-2 py-1">
+                    <p className="text-xs font-medium text-blue-900">📊 Records: <span className="font-bold">{importStatus['wm_bins'].count.toLocaleString()}</span></p>
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 rounded px-2 py-1 text-xs text-gray-600">No data loaded yet</div>
                 )}
                 <p className="text-xs text-gray-500">Import bin master data. Can also add manually in WM Bins tab.</p>
                 <label className={`inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-lg border border-dashed border-gray-400 cursor-pointer text-sm text-gray-600 hover:bg-gray-50 ${importing === 'wm_bins' ? 'opacity-50 pointer-events-none' : ''}`}>
