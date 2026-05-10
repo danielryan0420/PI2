@@ -609,6 +609,17 @@ def import_storage_locations():
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
+@app.post('/api/imports/lgap')
+def import_lgap():
+    rows, err, code = parse_csv_upload()
+    if err:
+        return err, code
+    try:
+        count = ImportService.import_lgap(rows)
+        return jsonify({'imported': count}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
 @app.post('/api/imports/wm-bins')
 def import_wm_bins():
     rows, err, code = parse_csv_upload()

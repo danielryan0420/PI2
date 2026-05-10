@@ -440,6 +440,24 @@ export function AdminPage() {
             </Card>
 
             <Card>
+              <CardHeader><h3 className="font-semibold text-gray-700 text-sm">LGAP (Storage Bins)</h3></CardHeader>
+              <CardBody className="flex flex-col gap-2">
+                {importStatus['sap_lgap'] && (
+                  <p className="text-xs text-gray-500">{importStatus['sap_lgap'].count} bins · Updated {importStatus['sap_lgap'].updated_at ? formatDateTime(importStatus['sap_lgap'].updated_at!) : 'never'}</p>
+                )}
+                <p className="text-xs text-gray-500">SAP warehouse storage bin master data. All bins created in the warehouse system.</p>
+                <label className={`inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-lg border border-dashed border-gray-400 cursor-pointer text-sm text-gray-600 hover:bg-gray-50 ${importing === 'lgap' ? 'opacity-50 pointer-events-none' : ''}`}>
+                  {importing === 'lgap' ? '⟳ Importing…' : '↑ Upload LGAP CSV or XLSX'}
+                  <input type="file" accept=".csv,.xlsx,.xls,.txt" className="hidden" onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleImport('lgap', '/imports/lgap', file);
+                    e.target.value = '';
+                  }} />
+                </label>
+              </CardBody>
+            </Card>
+
+            <Card>
               <CardHeader><h3 className="font-semibold text-gray-700 text-sm">WM Bins (Bulk Import)</h3></CardHeader>
               <CardBody className="flex flex-col gap-2">
                 {importStatus['wm_bins'] && (

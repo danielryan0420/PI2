@@ -444,6 +444,7 @@ class ImportService:
             'sap_mlgn': ('SELECT COUNT(*) as count, MAX(uploaded_at) as uploaded_at FROM sap_mlgn', 'uploaded_at'),
             'sap_lqua': ('SELECT COUNT(*) as count, MAX(uploaded_at) as uploaded_at FROM sap_lqua', 'uploaded_at'),
             'sap_storage_locations': ('SELECT COUNT(*) as count, MAX(uploaded_at) as uploaded_at FROM sap_storage_locations', 'uploaded_at'),
+            'sap_lgap': ('SELECT COUNT(*) as count, MAX(uploaded_at) as uploaded_at FROM sap_lgap', 'uploaded_at'),
             'wm_bins': ('SELECT COUNT(*) as count FROM wm_bins', None),
         }
         result = {}
@@ -669,6 +670,33 @@ class ImportService:
                     code, plant,
                     row.get('description') or row.get('LGOBE') or '',
                     row.get('storage_type') or row.get('LOTYP') or ''
+                ))
+                count += 1
+            except Exception:
+                continue
+        return count
+
+    @staticmethod
+    def import_lgap(rows: List[Dict]) -> int:
+        count = 0
+        for row in rows:
+            bin_code = (row.get('bin_code') or row.get('BINID') or '').strip()
+            plant = (row.get('plant') or row.get('WERKS') or '').strip()
+            sloc = (row.get('storage_location') or row.get('LGORT') or '').strip()
+            if not bin_code or not plant or not sloc:
+                continue
+            try:
+                db.insert("""
+                    INSERT OR REPLACE INTO sap_lgap
+                    (bin_code, plant, storage_location, bin_type, storage_type, description, capacity_qty, capacity_uom)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    bin_code, plant, sloc,
+                    row.get('bin_type') or row.get('BINTYPE') or '',
+                    row.get('storage_type') or row.get('LOTYP') or '',
+                    row.get('description') or row.get('BINTEXT') or '',
+                    float(row.get('capacity_qty') or row.get('MAXKG') or 0) if row.get('capacity_qty') or row.get('MAXKG') else None,
+                    row.get('capacity_uom') or row.get('MEINS') or ''
                 ))
                 count += 1
             except Exception:

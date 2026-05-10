@@ -283,6 +283,21 @@ CREATE TABLE IF NOT EXISTS sap_storage_locations (
     uploaded_at         TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- LGAP: Storage Bins (warehouse storage bin master data)
+CREATE TABLE IF NOT EXISTS sap_lgap (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    bin_code            TEXT NOT NULL,
+    plant               TEXT NOT NULL,
+    storage_location    TEXT NOT NULL,
+    bin_type            TEXT,
+    storage_type        TEXT,
+    description         TEXT,
+    capacity_qty        REAL,
+    capacity_uom        TEXT,
+    uploaded_at         TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(bin_code, plant, storage_location)
+);
+
 CREATE INDEX IF NOT EXISTS idx_mard_material ON sap_mard(material_number);
 CREATE INDEX IF NOT EXISTS idx_mard_plant ON sap_mard(plant);
 CREATE INDEX IF NOT EXISTS idx_mard_sloc ON sap_mard(storage_location);
@@ -290,6 +305,9 @@ CREATE INDEX IF NOT EXISTS idx_mlgt_material ON sap_mlgt(material_number);
 CREATE INDEX IF NOT EXISTS idx_mlgn_material ON sap_mlgn(material_number);
 CREATE INDEX IF NOT EXISTS idx_lqua_material ON sap_lqua(material_number);
 CREATE INDEX IF NOT EXISTS idx_lqua_sloc ON sap_lqua(storage_location);
+CREATE INDEX IF NOT EXISTS idx_lgap_plant ON sap_lgap(plant);
+CREATE INDEX IF NOT EXISTS idx_lgap_sloc ON sap_lgap(storage_location);
+CREATE INDEX IF NOT EXISTS idx_lgap_bin ON sap_lgap(bin_code);
 """),
 ]
 
