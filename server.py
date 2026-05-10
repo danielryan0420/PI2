@@ -158,6 +158,7 @@ def create_count(session_id):
     data = request.json
 
     try:
+        validation_warnings_raw = data.get('validation_warnings')
         count_id = CountService.create_count(
             session_id=session_id,
             username=data.get('username'),
@@ -166,8 +167,51 @@ def create_count(session_id):
             sloc=data.get('sloc'),
             wm_bin=data.get('wm_bin'),
             zbin=data.get('zbin'),
-            validation_warnings=data.get('validation_warnings')
+            validation_warnings=validation_warnings_raw
         )
+
+        # Auto-post system message so admins are notified via the messages inbox
+        if validation_warnings_raw:
+            try:
+                warnings = json.loads(validation_warnings_raw)
+                mat = (data.get('material_number') or '').upper()
+                wm = (data.get('wm_bin') or '').upper()
+                counter = data.get('username', 'unknown')
+                lines = []
+
+                if 'material_not_found' in warnings:
+                    lines.append(
+                        f"Material {mat} was not found in Material Master (MARA). "
+                        "Verify this is a valid material number before verifying the count."
+                    )
+                if 'wm_bin_not_found' in warnings:
+                    lines.append(
+                        f"WM Bin {wm} was not found in storage bin master (LGAP). "
+                        "Verify this bin exists in the warehouse system."
+                    )
+                if 'fixed_bin_mismatch' in warnings and wm:
+                    check = WmBinService.check_fixed_bin(mat, wm)
+                    expected = check.get('expected_bin') or 'unknown'
+                    lines.append(
+                        f"Fixed bin mismatch: {mat} has fixed bin {expected} in MM02 WM2, "
+                        f"but was counted into {wm}. Confirm the correct bin with the counter."
+                    )
+
+                if lines:
+                    body = (
+                        f"⚠️ Validation alert on Count #{count_id} submitted by {counter}:\n\n"
+                        + "\n\n".join(f"• {l}" for l in lines)
+                    )
+                    MessageService.create_message(
+                        session_id=session_id,
+                        sender='SYSTEM',
+                        role='counter',
+                        body=body,
+                        count_id=count_id
+                    )
+            except Exception:
+                pass  # never let message creation block the count response
+
         return jsonify(CountService.get_count(count_id)), 201
     except Exception as e:
         return jsonify({'error': str(e)}), 400

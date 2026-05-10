@@ -290,7 +290,9 @@ export function OfficePage() {
                         {!hasAdminReply && <span className="text-[10px] bg-amber-500 text-white rounded-full px-1.5 py-0.5 font-medium">Needs reply</span>}
                       </div>
                       <p className="text-sm text-gray-700 truncate">{last.body}</p>
-                      <span className="text-xs text-gray-400">{last.sender} · {formatDateTime(last.sent_at)}</span>
+                      <span className={`text-xs ${last.sender === 'SYSTEM' ? 'text-amber-600 font-medium' : 'text-gray-400'}`}>
+                        {last.sender === 'SYSTEM' ? '⚠️ SYSTEM alert' : last.sender} · {formatDateTime(last.sent_at)}
+                      </span>
                     </div>
                   );
                 })}
@@ -306,15 +308,26 @@ export function OfficePage() {
                       {replyTarget === 0 ? 'General Thread' : `Count #${replyTarget}${threads[replyTarget]?.[0]?.material_number ? ` — ${threads[replyTarget][0].material_number}` : ''}`}
                     </h3>
                     <div className="flex flex-col gap-2 flex-1 overflow-y-auto" style={{ maxHeight: 320 }}>
-                      {threadMessages.map((m) => (
-                        <div key={m.id} className={`flex ${m.role === 'admin' ? 'justify-end' : 'justify-start'}`}>
-                          <div className={`text-sm rounded-2xl px-4 py-2.5 max-w-[80%] ${m.role === 'admin' ? 'bg-purple-600 text-white rounded-br-sm' : 'bg-gray-100 text-gray-800 rounded-bl-sm'}`}>
-                            <div className={`text-xs font-medium mb-1 ${m.role === 'admin' ? 'text-purple-200' : 'text-gray-500'}`}>{m.sender}</div>
-                            <div>{m.body}</div>
-                            <div className={`text-xs mt-1 ${m.role === 'admin' ? 'text-purple-300' : 'text-gray-400'}`}>{formatDateTime(m.sent_at)}</div>
+                      {threadMessages.map((m) => {
+                        const isAdmin = m.role === 'admin';
+                        const isSystem = m.sender === 'SYSTEM';
+                        const bubbleClass = isAdmin
+                          ? 'bg-purple-600 text-white rounded-br-sm'
+                          : isSystem
+                            ? 'bg-amber-50 border border-amber-300 text-amber-900 rounded-bl-sm'
+                            : 'bg-gray-100 text-gray-800 rounded-bl-sm';
+                        const labelClass = isAdmin ? 'text-purple-200' : isSystem ? 'text-amber-600 font-semibold' : 'text-gray-500';
+                        const timeClass = isAdmin ? 'text-purple-300' : isSystem ? 'text-amber-500' : 'text-gray-400';
+                        return (
+                          <div key={m.id} className={`flex ${isAdmin ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`text-sm rounded-2xl px-4 py-2.5 max-w-[85%] ${bubbleClass}`}>
+                              <div className={`text-xs mb-1 ${labelClass}`}>{isSystem ? '⚠️ SYSTEM' : m.sender}</div>
+                              <div className="whitespace-pre-wrap">{m.body}</div>
+                              <div className={`text-xs mt-1 ${timeClass}`}>{formatDateTime(m.sent_at)}</div>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                       {threadMessages.length === 0 && <div className="text-sm text-gray-400 text-center py-6">No messages in this thread yet</div>}
                     </div>
                     <div className="flex gap-2 pt-2 border-t border-gray-100">
