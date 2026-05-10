@@ -165,7 +165,8 @@ def create_count(session_id):
             quantity=float(data.get('quantity')),
             sloc=data.get('sloc'),
             wm_bin=data.get('wm_bin'),
-            zbin=data.get('zbin')
+            zbin=data.get('zbin'),
+            validation_warnings=data.get('validation_warnings')
         )
         return jsonify(CountService.get_count(count_id)), 201
     except Exception as e:
@@ -431,6 +432,16 @@ def get_material(material_number):
 def search_materials(query):
     materials = MaterialService.search_materials(query)
     return jsonify(materials)
+
+@app.get('/api/validate/material/<material_number>')
+def validate_material(material_number):
+    material = MaterialService.get_material(material_number)
+    return jsonify({'exists': material is not None})
+
+@app.get('/api/validate/wm-bin/<bin_code>')
+def validate_wm_bin(bin_code):
+    result = db.fetch_one("SELECT id FROM wm_bins WHERE bin = ? LIMIT 1", (bin_code.upper(),))
+    return jsonify({'exists': result is not None})
 
 # ===== WM BINS =====
 @app.post('/api/wm-bins')

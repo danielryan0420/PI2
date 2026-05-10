@@ -34,6 +34,7 @@ export interface Count {
   wm_bin: string | null;
   zbin: string | null;
   status: 'pending' | 'verified' | 'flagged';
+  validation_warnings: string | null;
   created_at: string;
   updated_at: string;
 }

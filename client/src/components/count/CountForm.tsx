@@ -31,6 +31,8 @@ export function CountForm({ onSubmitted, prefill, onPrefillConsumed }: CountForm
   const [materialDesc, setMaterialDesc] = useState<string | null>(null);
   const [scanTarget, setScanTarget] = useState<ScanTarget | null>(null);
   const [recountBanner, setRecountBanner] = useState(false);
+  const [materialWarning, setMaterialWarning] = useState<string | null>(null);
+  const [binWarning, setBinWarning] = useState<string | null>(null);
 
   const materialRef = useRef<HTMLInputElement>(null);
   const quantityRef = useRef<HTMLInputElement>(null);
@@ -78,23 +80,44 @@ export function CountForm({ onSubmitted, prefill, onPrefillConsumed }: CountForm
   const needsWmBin = slocConf?.wm_enabled === 1;
   const needsZbin = slocConf?.im_enabled === 1;
 
-  // Lookup material description when material number changes
+  // Lookup material description and validate existence when material number changes
   useEffect(() => {
-    if (materialNumber.trim().length < 3) { setMaterialDesc(null); return; }
+    if (materialNumber.trim().length < 3) { setMaterialDesc(null); setMaterialWarning(null); return; }
     const timer = setTimeout(async () => {
       try {
-        // We use the sloc-config endpoint as proxy; actually fetch from materials
-        const res = await fetch(`/api/sessions/${session?.id}/counts?material=${encodeURIComponent(materialNumber)}&limit=1`);
-        // Just try to hit sap_materials directly via a small endpoint
         const matRes = await fetch(`/api/materials/${encodeURIComponent(materialNumber)}`);
         if (matRes.ok) {
           const m = await matRes.json() as { description?: string };
           setMaterialDesc(m.description ?? null);
+          setMaterialWarning(null);
+        } else {
+          // Material not found in MARA
+          setMaterialDesc(null);
+          setMaterialWarning(`⚠️ Material ${materialNumber.toUpperCase()} not in Master Data. You can still submit, admin will be notified.`);
         }
-      } catch { setMaterialDesc(null); }
+      } catch { setMaterialDesc(null); setMaterialWarning(null); }
     }, 400);
     return () => clearTimeout(timer);
   }, [materialNumber, session?.id]);
+
+  // Validate WM bin existence when it changes
+  useEffect(() => {
+    if (!needsWmBin || wmBin.trim().length < 2) { setBinWarning(null); return; }
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/validate/wm-bin/${encodeURIComponent(wmBin)}`);
+        if (res.ok) {
+          const data = await res.json() as { exists: boolean };
+          if (!data.exists) {
+            setBinWarning(`⚠️ WM Bin ${wmBin.toUpperCase()} not found. You can still submit, admin will be notified.`);
+          } else {
+            setBinWarning(null);
+          }
+        }
+      } catch { setBinWarning(null); }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [wmBin, needsWmBin]);
 
   const slocOptions = slocConfigs.map((c) => ({
     value: c.sloc,
@@ -156,6 +179,10 @@ export function CountForm({ onSubmitted, prefill, onPrefillConsumed }: CountForm
 
     setSubmitting(true);
     try {
+      const warnings: string[] = [];
+      if (materialWarning) warnings.push('material_not_found');
+      if (binWarning) warnings.push('wm_bin_not_found');
+
       const count = await api.post<Count>(`/sessions/${session.id}/counts`, {
         username,
         material_number: materialNumber.trim().toUpperCase(),
@@ -163,6 +190,7 @@ export function CountForm({ onSubmitted, prefill, onPrefillConsumed }: CountForm
         sloc,
         wm_bin: needsWmBin ? wmBin.trim().toUpperCase() : undefined,
         zbin: needsZbin ? zbin.trim().toUpperCase() : undefined,
+        validation_warnings: warnings.length > 0 ? JSON.stringify(warnings) : undefined,
       });
 
       // Send question if one was entered
@@ -223,7 +251,7 @@ export function CountForm({ onSubmitted, prefill, onPrefillConsumed }: CountForm
             onChange={(e) => setMaterialNumber(e.target.value.toUpperCase())}
             onKeyDown={handleMaterialKeyDown}
             placeholder="e.g. 100-00001 or scan"
-            className="flex-1 min-h-[44px] px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase"
+            className={`flex-1 min-h-[44px] px-3 border rounded-lg text-sm focus:outline-none focus:ring-2 uppercase ${materialWarning ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'}`}
             inputMode="text"
             autoComplete="off"
           />
@@ -236,7 +264,10 @@ export function CountForm({ onSubmitted, prefill, onPrefillConsumed }: CountForm
             📷
           </button>
         </div>
-        {materialDesc && (
+        {materialWarning && (
+          <p className="text-xs text-red-600 mt-0.5 ml-1 bg-red-50 px-2 py-1 rounded">{materialWarning}</p>
+        )}
+        {materialDesc && !materialWarning && (
           <p className="text-xs text-gray-500 mt-0.5 ml-1">{materialDesc}</p>
         )}
       </div>
@@ -264,7 +295,7 @@ export function CountForm({ onSubmitted, prefill, onPrefillConsumed }: CountForm
               onChange={(e) => setWmBin(e.target.value.toUpperCase())}
               onKeyDown={handleWmBinKeyDown}
               placeholder="Scan or type WM bin"
-              className="flex-1 min-h-[44px] px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase"
+              className={`flex-1 min-h-[44px] px-3 border rounded-lg text-sm focus:outline-none focus:ring-2 uppercase ${binWarning ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'}`}
               autoComplete="off"
             />
             <button
@@ -275,6 +306,9 @@ export function CountForm({ onSubmitted, prefill, onPrefillConsumed }: CountForm
               📷
             </button>
           </div>
+          {binWarning && (
+            <p className="text-xs text-red-600 mt-0.5 ml-1 bg-red-50 px-2 py-1 rounded">{binWarning}</p>
+          )}
         </div>
       )}
 

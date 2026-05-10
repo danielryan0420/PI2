@@ -54,13 +54,14 @@ class CountService:
         sloc: str,
         wm_bin: Optional[str] = None,
         zbin: Optional[str] = None,
+        validation_warnings: Optional[str] = None,
     ) -> int:
         count_id = db.insert(
             """
-            INSERT INTO counts (session_id, username, material_number, quantity, sloc, wm_bin, zbin, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO counts (session_id, username, material_number, quantity, sloc, wm_bin, zbin, status, validation_warnings)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (session_id, username, material_number, quantity, sloc, wm_bin, zbin, 'pending')
+            (session_id, username, material_number, quantity, sloc, wm_bin, zbin, 'pending', validation_warnings)
         )
         AuditService.log_event(count_id, username, 'create', None, None, material_number)
         return count_id
