@@ -376,11 +376,14 @@ export function AdminPage() {
 
         {/* ─── SAP DATA TAB ─── */}
         {tab === 'data' && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {[
               { key: 'materials', label: 'MARA / MAKT (Materials)', endpoint: '/imports/materials', tableKey: 'sap_materials' },
               { key: 'plant_data', label: 'MARC (Plant Data)', endpoint: '/imports/plant-data', tableKey: 'sap_plant_data' },
               { key: 'valuation', label: 'MBEW (Valuation)', endpoint: '/imports/valuation', tableKey: 'sap_valuation' },
+              { key: 'mlgt', label: 'MLGT (Material Ledger GL)', endpoint: '/imports/mlgt', tableKey: 'sap_mlgt' },
+              { key: 'mlgn', label: 'MLGN (Material Ledger Items)', endpoint: '/imports/mlgn', tableKey: 'sap_mlgn' },
+              { key: 'lqua', label: 'LQUA (Warehouse Stock)', endpoint: '/imports/lqua', tableKey: 'sap_lqua' },
             ].map((imp) => (
               <Card key={imp.key}>
                 <CardHeader><h3 className="font-semibold text-gray-700 text-sm">{imp.label}</h3></CardHeader>
@@ -409,6 +412,58 @@ export function AdminPage() {
                   <input type="file" accept=".csv,.xlsx,.xls,.txt" className="hidden" onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (file && session) handleImport('snapshot', `/imports/snapshot`, file, { sessionId: String(session.id) });
+                    e.target.value = '';
+                  }} />
+                </label>
+              </CardBody>
+            </Card>
+
+            <Card>
+              <CardHeader><h3 className="font-semibold text-gray-700 text-sm">Storage Types</h3></CardHeader>
+              <CardBody className="flex flex-col gap-2">
+                {importStatus['sap_storage_types'] && (
+                  <p className="text-xs text-gray-500">{importStatus['sap_storage_types'].count} rows · Updated {importStatus['sap_storage_types'].updated_at ? formatDateTime(importStatus['sap_storage_types'].updated_at!) : 'never'}</p>
+                )}
+                <label className={`inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-lg border border-dashed border-gray-400 cursor-pointer text-sm text-gray-600 hover:bg-gray-50 ${importing === 'storage_types' ? 'opacity-50 pointer-events-none' : ''}`}>
+                  {importing === 'storage_types' ? '⟳ Importing…' : '↑ Upload CSV or XLSX'}
+                  <input type="file" accept=".csv,.xlsx,.xls,.txt" className="hidden" onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleImport('storage_types', '/imports/storage-types', file);
+                    e.target.value = '';
+                  }} />
+                </label>
+              </CardBody>
+            </Card>
+
+            <Card>
+              <CardHeader><h3 className="font-semibold text-gray-700 text-sm">Storage Locations</h3></CardHeader>
+              <CardBody className="flex flex-col gap-2">
+                {importStatus['sap_storage_locations'] && (
+                  <p className="text-xs text-gray-500">{importStatus['sap_storage_locations'].count} rows · Updated {importStatus['sap_storage_locations'].updated_at ? formatDateTime(importStatus['sap_storage_locations'].updated_at!) : 'never'}</p>
+                )}
+                <label className={`inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-lg border border-dashed border-gray-400 cursor-pointer text-sm text-gray-600 hover:bg-gray-50 ${importing === 'storage_locations' ? 'opacity-50 pointer-events-none' : ''}`}>
+                  {importing === 'storage_locations' ? '⟳ Importing…' : '↑ Upload CSV or XLSX'}
+                  <input type="file" accept=".csv,.xlsx,.xls,.txt" className="hidden" onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleImport('storage_locations', '/imports/storage-locations', file);
+                    e.target.value = '';
+                  }} />
+                </label>
+              </CardBody>
+            </Card>
+
+            <Card>
+              <CardHeader><h3 className="font-semibold text-gray-700 text-sm">WM Bins (Bulk Import)</h3></CardHeader>
+              <CardBody className="flex flex-col gap-2">
+                {importStatus['wm_bins'] && (
+                  <p className="text-xs text-gray-500">{importStatus['wm_bins'].count} bins configured</p>
+                )}
+                <p className="text-xs text-gray-500">Import bin master data. Can also add manually in WM Bins tab.</p>
+                <label className={`inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-lg border border-dashed border-gray-400 cursor-pointer text-sm text-gray-600 hover:bg-gray-50 ${importing === 'wm_bins' ? 'opacity-50 pointer-events-none' : ''}`}>
+                  {importing === 'wm_bins' ? '⟳ Importing…' : '↑ Upload CSV or XLSX'}
+                  <input type="file" accept=".csv,.xlsx,.xls,.txt" className="hidden" onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleImport('wm_bins', '/imports/wm-bins', file);
                     e.target.value = '';
                   }} />
                 </label>

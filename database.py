@@ -214,6 +214,71 @@ PRAGMA foreign_keys = ON;
     ("009_user_last_active.sql", """
 ALTER TABLE users ADD COLUMN last_active TEXT NULL;
 """),
+    ("010_sap_ledger_tables.sql", """
+-- MLGT: Material Ledger GL (valuation and GL account mapping)
+CREATE TABLE IF NOT EXISTS sap_mlgt (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    material_number     TEXT NOT NULL,
+    plant               TEXT NOT NULL,
+    valuation_area      TEXT NOT NULL,
+    gl_account          TEXT,
+    currency            TEXT,
+    amount              REAL,
+    quantity            REAL,
+    uploaded_at         TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(material_number, plant, valuation_area, gl_account)
+);
+
+-- MLGN: Material Ledger Line Items (detailed transactions)
+CREATE TABLE IF NOT EXISTS sap_mlgn (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    material_number     TEXT NOT NULL,
+    plant               TEXT NOT NULL,
+    document_number     TEXT,
+    item_number         TEXT,
+    posting_date        TEXT,
+    document_type       TEXT,
+    quantity            REAL,
+    value               REAL,
+    uploaded_at         TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- LQUA: Warehouse stock (stock by warehouse, storage location, material)
+CREATE TABLE IF NOT EXISTS sap_lqua (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    material_number     TEXT NOT NULL,
+    plant               TEXT NOT NULL,
+    storage_location    TEXT NOT NULL,
+    quantity_unrestricted   REAL,
+    quantity_restricted     REAL,
+    quantity_blocked        REAL,
+    uom                 TEXT,
+    uploaded_at         TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(material_number, plant, storage_location)
+);
+
+-- Storage Types (master data for warehouse storage type codes)
+CREATE TABLE IF NOT EXISTS sap_storage_types (
+    code                TEXT PRIMARY KEY,
+    description         TEXT,
+    control_type        TEXT,
+    uploaded_at         TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Storage Locations (master data for warehouse storage locations)
+CREATE TABLE IF NOT EXISTS sap_storage_locations (
+    code                TEXT PRIMARY KEY,
+    plant               TEXT,
+    description         TEXT,
+    storage_type        TEXT,
+    uploaded_at         TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_mlgt_material ON sap_mlgt(material_number);
+CREATE INDEX IF NOT EXISTS idx_mlgn_material ON sap_mlgn(material_number);
+CREATE INDEX IF NOT EXISTS idx_lqua_material ON sap_lqua(material_number);
+CREATE INDEX IF NOT EXISTS idx_lqua_sloc ON sap_lqua(storage_location);
+"""),
 ]
 
 class Database:

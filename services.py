@@ -439,6 +439,12 @@ class ImportService:
             'sap_materials': 'SELECT COUNT(*) as count, MAX(updated_at) as updated_at FROM sap_materials',
             'sap_plant_data': 'SELECT COUNT(*) as count, MAX(updated_at) as updated_at FROM sap_plant_data',
             'sap_valuation': 'SELECT COUNT(*) as count, MAX(updated_at) as updated_at FROM sap_valuation',
+            'sap_mlgt': 'SELECT COUNT(*) as count, MAX(uploaded_at) as updated_at FROM sap_mlgt',
+            'sap_mlgn': 'SELECT COUNT(*) as count, MAX(uploaded_at) as updated_at FROM sap_mlgn',
+            'sap_lqua': 'SELECT COUNT(*) as count, MAX(uploaded_at) as updated_at FROM sap_lqua',
+            'sap_storage_types': 'SELECT COUNT(*) as count, MAX(uploaded_at) as updated_at FROM sap_storage_types',
+            'sap_storage_locations': 'SELECT COUNT(*) as count, MAX(uploaded_at) as updated_at FROM sap_storage_locations',
+            'wm_bins': 'SELECT COUNT(*) as count FROM wm_bins',
         }
         result = {}
         for key, query in tables.items():
@@ -505,6 +511,153 @@ class ImportService:
                     session_id, mat, sloc,
                     float(row.get('sap_quantity') or row.get('quantity') or row.get('LABST') or 0),
                     row.get('uom') or row.get('MEINS') or ''
+                ))
+                count += 1
+            except Exception:
+                continue
+        return count
+
+    @staticmethod
+    def import_mlgt(rows: List[Dict]) -> int:
+        count = 0
+        for row in rows:
+            mat = (row.get('material_number') or row.get('MATNR') or '').strip()
+            plant = (row.get('plant') or row.get('WERKS') or '').strip()
+            val_area = (row.get('valuation_area') or row.get('BWKEY') or '').strip()
+            if not mat or not plant or not val_area:
+                continue
+            try:
+                db.insert("""
+                    INSERT OR REPLACE INTO sap_mlgt
+                    (material_number, plant, valuation_area, gl_account, currency, amount, quantity)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    mat, plant, val_area,
+                    row.get('gl_account') or row.get('KONTO') or '',
+                    row.get('currency') or row.get('WAERS') or '',
+                    float(row.get('amount') or row.get('DMBTR') or 0),
+                    float(row.get('quantity') or row.get('MENGE') or 0)
+                ))
+                count += 1
+            except Exception:
+                continue
+        return count
+
+    @staticmethod
+    def import_mlgn(rows: List[Dict]) -> int:
+        count = 0
+        for row in rows:
+            mat = (row.get('material_number') or row.get('MATNR') or '').strip()
+            plant = (row.get('plant') or row.get('WERKS') or '').strip()
+            if not mat or not plant:
+                continue
+            try:
+                db.insert("""
+                    INSERT INTO sap_mlgn
+                    (material_number, plant, document_number, item_number, posting_date, document_type, quantity, value)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    mat, plant,
+                    row.get('document_number') or row.get('DOCNUM') or '',
+                    row.get('item_number') or row.get('ITEMNUM') or '',
+                    row.get('posting_date') or row.get('BUDAT') or '',
+                    row.get('document_type') or row.get('DOCTYPE') or '',
+                    float(row.get('quantity') or row.get('MENGE') or 0),
+                    float(row.get('value') or row.get('DMBTR') or 0)
+                ))
+                count += 1
+            except Exception:
+                continue
+        return count
+
+    @staticmethod
+    def import_lqua(rows: List[Dict]) -> int:
+        db.execute("DELETE FROM sap_lqua")
+        count = 0
+        for row in rows:
+            mat = (row.get('material_number') or row.get('MATNR') or '').strip()
+            plant = (row.get('plant') or row.get('WERKS') or '').strip()
+            sloc = (row.get('storage_location') or row.get('LGORT') or '').strip()
+            if not mat or not plant or not sloc:
+                continue
+            try:
+                db.insert("""
+                    INSERT OR REPLACE INTO sap_lqua
+                    (material_number, plant, storage_location, quantity_unrestricted, quantity_restricted, quantity_blocked, uom)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    mat, plant, sloc,
+                    float(row.get('quantity_unrestricted') or row.get('LABST') or 0),
+                    float(row.get('quantity_restricted') or row.get('SPERR') or 0),
+                    float(row.get('quantity_blocked') or row.get('CHARG') or 0),
+                    row.get('uom') or row.get('MEINS') or ''
+                ))
+                count += 1
+            except Exception:
+                continue
+        return count
+
+    @staticmethod
+    def import_storage_types(rows: List[Dict]) -> int:
+        db.execute("DELETE FROM sap_storage_types")
+        count = 0
+        for row in rows:
+            code = (row.get('code') or row.get('LOTYP') or '').strip()
+            if not code:
+                continue
+            try:
+                db.insert("""
+                    INSERT INTO sap_storage_types (code, description, control_type)
+                    VALUES (?, ?, ?)
+                """, (
+                    code,
+                    row.get('description') or row.get('LOTYPX') or '',
+                    row.get('control_type') or row.get('LOSTYPETEXT') or ''
+                ))
+                count += 1
+            except Exception:
+                continue
+        return count
+
+    @staticmethod
+    def import_storage_locations(rows: List[Dict]) -> int:
+        db.execute("DELETE FROM sap_storage_locations")
+        count = 0
+        for row in rows:
+            code = (row.get('code') or row.get('LGORT') or '').strip()
+            plant = (row.get('plant') or row.get('WERKS') or '').strip()
+            if not code or not plant:
+                continue
+            try:
+                db.insert("""
+                    INSERT INTO sap_storage_locations (code, plant, description, storage_type)
+                    VALUES (?, ?, ?, ?)
+                """, (
+                    code, plant,
+                    row.get('description') or row.get('LGOBE') or '',
+                    row.get('storage_type') or row.get('LOTYP') or ''
+                ))
+                count += 1
+            except Exception:
+                continue
+        return count
+
+    @staticmethod
+    def import_wm_bins(rows: List[Dict]) -> int:
+        count = 0
+        for row in rows:
+            bin_code = (row.get('bin') or row.get('bin_code') or row.get('BIN') or '').strip()
+            storage_type = (row.get('storage_type') or row.get('LOTYP') or '').strip()
+            sloc = (row.get('sloc') or row.get('storage_location') or row.get('LGORT') or '').strip()
+            if not bin_code or not storage_type or not sloc:
+                continue
+            try:
+                db.insert("""
+                    INSERT OR IGNORE INTO wm_bins (bin, storage_type, sloc, description)
+                    VALUES (?, ?, ?, ?)
+                """, (
+                    bin_code, storage_type, sloc,
+                    row.get('description') or row.get('BINTEXT') or ''
                 ))
                 count += 1
             except Exception:

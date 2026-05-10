@@ -8,6 +8,7 @@ from flask import Flask, jsonify, request, send_from_directory, send_file, Respo
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 import uuid
+import openpyxl
 from services import (
     UserService, SessionService, CountService, PhotoService,
     MessageService, AuditService, SlocConfigService, MaterialService,
@@ -476,9 +477,31 @@ def parse_csv_upload():
     file = request.files.get('file')
     if not file:
         return None, jsonify({'error': 'No file provided'}), 400
-    text = file.read().decode('utf-8-sig', errors='replace')
-    reader = csv.DictReader(io.StringIO(text))
-    return list(reader), None, None
+
+    filename = file.filename or ''
+    rows = []
+
+    # Handle XLSX files
+    if filename.endswith('.xlsx'):
+        try:
+            wb = openpyxl.load_workbook(io.BytesIO(file.read()))
+            ws = wb.active
+            headers = [cell.value for cell in ws[1]]
+            for row in ws.iter_rows(min_row=2, values_only=True):
+                if any(row):  # Skip empty rows
+                    rows.append(dict(zip(headers, row)))
+        except Exception as e:
+            return None, jsonify({'error': f'Failed to read XLSX: {str(e)}'}), 400
+    else:
+        # Handle CSV and TXT files
+        try:
+            text = file.read().decode('utf-8-sig', errors='replace')
+            reader = csv.DictReader(io.StringIO(text))
+            rows = list(reader) if reader else []
+        except Exception as e:
+            return None, jsonify({'error': f'Failed to read file: {str(e)}'}), 400
+
+    return rows, None, None
 
 @app.get('/api/imports/status')
 def get_import_status():
@@ -523,6 +546,72 @@ def import_snapshot():
         return jsonify({'error': 'sessionId required'}), 400
     try:
         count = ImportService.import_snapshot(int(session_id), rows)
+        return jsonify({'imported': count}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.post('/api/imports/mlgt')
+def import_mlgt():
+    rows, err, code = parse_csv_upload()
+    if err:
+        return err, code
+    try:
+        count = ImportService.import_mlgt(rows)
+        return jsonify({'imported': count}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.post('/api/imports/mlgn')
+def import_mlgn():
+    rows, err, code = parse_csv_upload()
+    if err:
+        return err, code
+    try:
+        count = ImportService.import_mlgn(rows)
+        return jsonify({'imported': count}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.post('/api/imports/lqua')
+def import_lqua():
+    rows, err, code = parse_csv_upload()
+    if err:
+        return err, code
+    try:
+        count = ImportService.import_lqua(rows)
+        return jsonify({'imported': count}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.post('/api/imports/storage-types')
+def import_storage_types():
+    rows, err, code = parse_csv_upload()
+    if err:
+        return err, code
+    try:
+        count = ImportService.import_storage_types(rows)
+        return jsonify({'imported': count}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.post('/api/imports/storage-locations')
+def import_storage_locations():
+    rows, err, code = parse_csv_upload()
+    if err:
+        return err, code
+    try:
+        count = ImportService.import_storage_locations(rows)
+        return jsonify({'imported': count}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.post('/api/imports/wm-bins')
+def import_wm_bins():
+    rows, err, code = parse_csv_upload()
+    if err:
+        return err, code
+    try:
+        count = ImportService.import_wm_bins(rows)
         return jsonify({'imported': count}), 201
     except Exception as e:
         return jsonify({'error': str(e)}), 400
