@@ -404,14 +404,17 @@ export function AdminPage() {
             ))}
 
             <Card>
-              <CardHeader><h3 className="font-semibold text-gray-700 text-sm">SAP Inventory Snapshot</h3></CardHeader>
+              <CardHeader><h3 className="font-semibold text-gray-700 text-sm">MARD (Warehouse Stock)</h3></CardHeader>
               <CardBody className="flex flex-col gap-2">
-                <p className="text-xs text-gray-500">Stock on hand at inventory freeze date. Used for variance comparison.</p>
-                <label className={`inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-lg border border-dashed border-blue-400 cursor-pointer text-sm text-blue-600 hover:bg-blue-50 ${importing === 'snapshot' ? 'opacity-50 pointer-events-none' : ''}`}>
-                  {importing === 'snapshot' ? '⟳ Importing…' : '↑ Upload Snapshot CSV or XLSX'}
+                {importStatus['sap_mard'] && (
+                  <p className="text-xs text-gray-500">{importStatus['sap_mard'].count} rows · Updated {importStatus['sap_mard'].updated_at ? formatDateTime(importStatus['sap_mard'].updated_at!) : 'never'}</p>
+                )}
+                <p className="text-xs text-gray-500">Material warehouse stock at plant/storage location level. From SAP table MARD (T300).</p>
+                <label className={`inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-lg border border-dashed border-gray-400 cursor-pointer text-sm text-gray-600 hover:bg-gray-50 ${importing === 'mard' ? 'opacity-50 pointer-events-none' : ''}`}>
+                  {importing === 'mard' ? '⟳ Importing…' : '↑ Upload MARD CSV or XLSX'}
                   <input type="file" accept=".csv,.xlsx,.xls,.txt" className="hidden" onChange={(e) => {
                     const file = e.target.files?.[0];
-                    if (file && session) handleImport('snapshot', `/imports/snapshot`, file, { sessionId: String(session.id) });
+                    if (file) handleImport('mard', '/imports/mard', file);
                     e.target.value = '';
                   }} />
                 </label>

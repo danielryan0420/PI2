@@ -215,6 +215,23 @@ PRAGMA foreign_keys = ON;
 ALTER TABLE users ADD COLUMN last_active TEXT NULL;
 """),
     ("010_sap_ledger_tables.sql", """
+-- MARD: Material Valuation at Plant/Warehouse Level (warehouse stock)
+CREATE TABLE IF NOT EXISTS sap_mard (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    material_number     TEXT NOT NULL,
+    plant               TEXT NOT NULL,
+    storage_location    TEXT NOT NULL,
+    unrestricted_qty    REAL,
+    restricted_qty      REAL,
+    quality_qty         REAL,
+    return_qty          REAL,
+    uom                 TEXT,
+    currency            TEXT,
+    total_value         REAL,
+    uploaded_at         TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(material_number, plant, storage_location)
+);
+
 -- MLGT: Material Ledger GL (valuation and GL account mapping)
 CREATE TABLE IF NOT EXISTS sap_mlgt (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -257,15 +274,7 @@ CREATE TABLE IF NOT EXISTS sap_lqua (
     UNIQUE(material_number, plant, storage_location)
 );
 
--- Storage Types (master data for warehouse storage type codes)
-CREATE TABLE IF NOT EXISTS sap_storage_types (
-    code                TEXT PRIMARY KEY,
-    description         TEXT,
-    control_type        TEXT,
-    uploaded_at         TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
--- Storage Locations (master data for warehouse storage locations)
+-- T300T: Storage Locations (master data for warehouse storage locations)
 CREATE TABLE IF NOT EXISTS sap_storage_locations (
     code                TEXT PRIMARY KEY,
     plant               TEXT,
@@ -274,6 +283,17 @@ CREATE TABLE IF NOT EXISTS sap_storage_locations (
     uploaded_at         TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- T300T: Storage Types (master data for warehouse storage type codes)
+CREATE TABLE IF NOT EXISTS sap_storage_types (
+    code                TEXT PRIMARY KEY,
+    description         TEXT,
+    control_type        TEXT,
+    uploaded_at         TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_mard_material ON sap_mard(material_number);
+CREATE INDEX IF NOT EXISTS idx_mard_plant ON sap_mard(plant);
+CREATE INDEX IF NOT EXISTS idx_mard_sloc ON sap_mard(storage_location);
 CREATE INDEX IF NOT EXISTS idx_mlgt_material ON sap_mlgt(material_number);
 CREATE INDEX IF NOT EXISTS idx_mlgn_material ON sap_mlgn(material_number);
 CREATE INDEX IF NOT EXISTS idx_lqua_material ON sap_lqua(material_number);

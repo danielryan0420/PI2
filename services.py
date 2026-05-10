@@ -439,11 +439,12 @@ class ImportService:
             'sap_materials': ('SELECT COUNT(*) as count, MAX(updated_at) as updated_at FROM sap_materials', 'updated_at'),
             'sap_plant_data': ('SELECT COUNT(*) as count, MAX(updated_at) as updated_at FROM sap_plant_data', 'updated_at'),
             'sap_valuation': ('SELECT COUNT(*) as count, MAX(updated_at) as updated_at FROM sap_valuation', 'updated_at'),
+            'sap_mard': ('SELECT COUNT(*) as count, MAX(uploaded_at) as uploaded_at FROM sap_mard', 'uploaded_at'),
             'sap_mlgt': ('SELECT COUNT(*) as count, MAX(uploaded_at) as uploaded_at FROM sap_mlgt', 'uploaded_at'),
             'sap_mlgn': ('SELECT COUNT(*) as count, MAX(uploaded_at) as uploaded_at FROM sap_mlgn', 'uploaded_at'),
             'sap_lqua': ('SELECT COUNT(*) as count, MAX(uploaded_at) as uploaded_at FROM sap_lqua', 'uploaded_at'),
             'sap_storage_types': ('SELECT COUNT(*) as count, MAX(uploaded_at) as uploaded_at FROM sap_storage_types', 'uploaded_at'),
-            'sap_storage_locations': ('SELECT COUNT(*) as count, MAX(uploaded_at) as uploaded_at FROM sap_storage_locations', 'uploaded_at'),
+            'sap_storage_locations': ('SELECT COUNT(*) as count, MAX(uploaded_at) as updated_at FROM sap_storage_locations', 'updated_at'),
             'wm_bins': ('SELECT COUNT(*) as count FROM wm_bins', None),
         }
         result = {}
@@ -452,6 +453,37 @@ class ImportService:
             updated_at = row.get(date_col) if date_col and row else None
             result[key] = {'count': row['count'] if row else 0, 'updated_at': updated_at}
         return result
+
+    @staticmethod
+    def import_mard(rows: List[Dict]) -> int:
+        db.execute("DELETE FROM sap_mard")
+        count = 0
+        for row in rows:
+            mat = (row.get('material_number') or row.get('MATNR') or '').strip()
+            plant = (row.get('plant') or row.get('WERKS') or '').strip()
+            sloc = (row.get('storage_location') or row.get('LGORT') or '').strip()
+            if not mat or not plant or not sloc:
+                continue
+            try:
+                db.insert("""
+                    INSERT OR REPLACE INTO sap_mard
+                    (material_number, plant, storage_location, unrestricted_qty, restricted_qty,
+                     quality_qty, return_qty, uom, currency, total_value)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    mat, plant, sloc,
+                    float(row.get('unrestricted_qty') or row.get('LABST') or 0),
+                    float(row.get('restricted_qty') or row.get('SPERR') or 0),
+                    float(row.get('quality_qty') or row.get('EINQU') or 0),
+                    float(row.get('return_qty') or row.get('RETRU') or 0),
+                    row.get('uom') or row.get('MEINS') or '',
+                    row.get('currency') or row.get('WAERS') or '',
+                    float(row.get('total_value') or row.get('SALK3') or 0)
+                ))
+                count += 1
+            except Exception:
+                continue
+        return count
 
     @staticmethod
     def import_materials(rows: List[Dict]) -> int:

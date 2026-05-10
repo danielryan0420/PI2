@@ -550,6 +550,17 @@ def import_snapshot():
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
+@app.post('/api/imports/mard')
+def import_mard():
+    rows, err, code = parse_csv_upload()
+    if err:
+        return err, code
+    try:
+        count = ImportService.import_mard(rows)
+        return jsonify({'imported': count}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
 @app.post('/api/imports/mlgt')
 def import_mlgt():
     rows, err, code = parse_csv_upload()
