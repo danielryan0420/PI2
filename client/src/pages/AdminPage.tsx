@@ -440,6 +440,29 @@ const tabs: { key: Tab; label: string }[] = [
               </CardBody>
             </Card>
 
+            <Card>
+              <CardHeader><h3 className="font-semibold text-gray-700 text-sm">LGPLO (Fixed Bin Assignments)</h3></CardHeader>
+              <CardBody className="flex flex-col gap-2">
+                {importStatus['sap_lgplo'] ? (
+                  <div className="bg-blue-50 rounded px-2 py-1">
+                    <p className="text-xs font-medium text-blue-900">📊 Records: <span className="font-bold">{importStatus['sap_lgplo'].count.toLocaleString()}</span></p>
+                    <p className="text-xs text-blue-700">⏰ Last: {importStatus['sap_lgplo'].updated_at ? formatDateTime(importStatus['sap_lgplo'].updated_at!) : 'Never'}</p>
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 rounded px-2 py-1 text-xs text-gray-600">No data loaded yet</div>
+                )}
+                <p className="text-xs text-gray-500">Fixed bin assignments from MM02 WM2 tab. Validates material is counted into its correct storage-type-100 bin. Columns: MATNR, LGNUM, LGTYP, LGPLA.</p>
+                <label className={`inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-lg border border-dashed border-gray-400 cursor-pointer text-sm text-gray-600 hover:bg-gray-50 ${importing === 'lgplo' ? 'opacity-50 pointer-events-none' : ''}`}>
+                  {importing === 'lgplo' ? '⟳ Importing…' : '↑ Upload LGPLO CSV or XLSX'}
+                  <input type="file" accept=".csv,.xlsx,.xls,.txt" className="hidden" onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleImport('lgplo', '/imports/lgplo', file);
+                    e.target.value = '';
+                  }} />
+                </label>
+              </CardBody>
+            </Card>
+
           </div>
         )}
 

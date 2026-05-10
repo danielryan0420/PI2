@@ -411,6 +411,34 @@ class WmBinService:
         return result is not None
 
     @staticmethod
+    def check_fixed_bin(material_number: str, bin_code: str) -> Dict[str, Any]:
+        """
+        For storage-type-100 bins: verify the material's fixed bin assignment
+        matches the entered bin. Returns a dict with:
+          is_fixed_bin_type: bool  (True if bin is storage type 100)
+          has_assignment:    bool  (True if material has a fixed bin row in LGPLO)
+          expected_bin:      str | None
+          matches:           bool
+        """
+        bin_row = db.fetch_one(
+            "SELECT storage_type FROM sap_lgap WHERE UPPER(bin_code) = ? LIMIT 1",
+            (bin_code.upper(),)
+        )
+        if not bin_row or str(bin_row.get('storage_type', '')).strip() != '100':
+            return {'is_fixed_bin_type': False, 'has_assignment': False, 'expected_bin': None, 'matches': True}
+
+        assignment = db.fetch_one(
+            "SELECT fixed_bin FROM sap_lgplo WHERE material_number = ? AND storage_type = '100' LIMIT 1",
+            (material_number.upper(),)
+        )
+        if not assignment:
+            return {'is_fixed_bin_type': True, 'has_assignment': False, 'expected_bin': None, 'matches': True}
+
+        expected = assignment['fixed_bin'].upper()
+        matches = expected == bin_code.upper()
+        return {'is_fixed_bin_type': True, 'has_assignment': True, 'expected_bin': expected, 'matches': matches}
+
+    @staticmethod
     def delete_bin_material(bin_id: int, material_number: str) -> None:
         db.execute(
             "DELETE FROM wm_bin_materials WHERE bin_id = ? AND material_number = ?",
@@ -477,6 +505,7 @@ class ImportService:
             'sap_storage_locations': ('SELECT COUNT(*) as count, MAX(uploaded_at) as uploaded_at FROM sap_storage_locations', 'uploaded_at'),
             'sap_lgap': ('SELECT COUNT(*) as count, MAX(uploaded_at) as uploaded_at FROM sap_lgap', 'uploaded_at'),
             'sap_mseg': ('SELECT COUNT(*) as count, MAX(uploaded_at) as uploaded_at FROM sap_mseg', 'uploaded_at'),
+            'sap_lgplo': ('SELECT COUNT(*) as count, MAX(uploaded_at) as uploaded_at FROM sap_lgplo', 'uploaded_at'),
             'wm_bins': ('SELECT COUNT(*) as count FROM wm_bins', None),
         }
         result = {}
@@ -767,6 +796,28 @@ class ImportService:
                     row.get('posting_date') or row.get('BUDAT') or '',
                     float(row.get('quantity') or row.get('MENGE') or 0)
                 ))
+                count += 1
+            except Exception:
+                continue
+        return count
+
+    @staticmethod
+    def import_lgplo(rows: List[Dict]) -> int:
+        db.execute("DELETE FROM sap_lgplo")
+        count = 0
+        for row in rows:
+            mat = (row.get('material_number') or row.get('MATNR') or '').strip()
+            lgnum = (row.get('warehouse_number') or row.get('LGNUM') or '').strip()
+            lgtyp = (row.get('storage_type') or row.get('LGTYP') or '').strip()
+            lgpla = (row.get('fixed_bin') or row.get('LGPLA') or '').strip()
+            if not mat or not lgnum or not lgtyp or not lgpla:
+                continue
+            try:
+                db.insert("""
+                    INSERT OR REPLACE INTO sap_lgplo
+                    (material_number, warehouse_number, storage_type, fixed_bin)
+                    VALUES (?, ?, ?, ?)
+                """, (mat, lgnum, lgtyp, lgpla))
                 count += 1
             except Exception:
                 continue

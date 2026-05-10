@@ -332,6 +332,23 @@ CREATE INDEX IF NOT EXISTS idx_lgap_bin ON sap_lgap(bin_code);
     ("011_count_validation_warnings.sql", """
 ALTER TABLE counts ADD COLUMN validation_warnings TEXT;
 """),
+    ("012_lgplo.sql", """
+-- LGPLO: Fixed bin assignments from MM02 WM2 tab
+-- MATNR + LGNUM + LGTYP → LGPLA (fixed storage bin)
+CREATE TABLE IF NOT EXISTS sap_lgplo (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    material_number TEXT NOT NULL,
+    warehouse_number TEXT NOT NULL,
+    storage_type    TEXT NOT NULL,
+    fixed_bin       TEXT NOT NULL,
+    uploaded_at     TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(material_number, warehouse_number, storage_type)
+);
+
+CREATE INDEX IF NOT EXISTS idx_lgplo_material ON sap_lgplo(material_number);
+CREATE INDEX IF NOT EXISTS idx_lgplo_storage_type ON sap_lgplo(storage_type);
+CREATE INDEX IF NOT EXISTS idx_lgplo_fixed_bin ON sap_lgplo(fixed_bin);
+"""),
 ]
 
 class Database:

@@ -33,6 +33,7 @@ export function CountForm({ onSubmitted, prefill, onPrefillConsumed }: CountForm
   const [recountBanner, setRecountBanner] = useState(false);
   const [materialWarning, setMaterialWarning] = useState<string | null>(null);
   const [binWarning, setBinWarning] = useState<string | null>(null);
+  const [fixedBinWarning, setFixedBinWarning] = useState<string | null>(null);
 
   const materialRef = useRef<HTMLInputElement>(null);
   const quantityRef = useRef<HTMLInputElement>(null);
@@ -119,6 +120,37 @@ export function CountForm({ onSubmitted, prefill, onPrefillConsumed }: CountForm
     return () => clearTimeout(timer);
   }, [wmBin, needsWmBin]);
 
+  // Validate fixed bin assignment for storage-type-100 bins
+  useEffect(() => {
+    if (!needsWmBin || wmBin.trim().length < 2 || materialNumber.trim().length < 3) {
+      setFixedBinWarning(null);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `/api/validate/fixed-bin?material=${encodeURIComponent(materialNumber.trim())}&wm_bin=${encodeURIComponent(wmBin.trim())}`
+        );
+        if (res.ok) {
+          const data = await res.json() as {
+            is_fixed_bin_type: boolean;
+            has_assignment: boolean;
+            expected_bin: string | null;
+            matches: boolean;
+          };
+          if (data.is_fixed_bin_type && data.has_assignment && !data.matches) {
+            setFixedBinWarning(
+              `⚠️ Fixed bin mismatch: ${materialNumber.trim().toUpperCase()} is assigned to bin ${data.expected_bin}, not ${wmBin.trim().toUpperCase()}.`
+            );
+          } else {
+            setFixedBinWarning(null);
+          }
+        }
+      } catch { setFixedBinWarning(null); }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [materialNumber, wmBin, needsWmBin]);
+
   const slocOptions = slocConfigs.map((c) => ({
     value: c.sloc,
     label: c.description ? `${c.sloc} — ${c.description}` : c.sloc,
@@ -182,6 +214,7 @@ export function CountForm({ onSubmitted, prefill, onPrefillConsumed }: CountForm
       const warnings: string[] = [];
       if (materialWarning) warnings.push('material_not_found');
       if (binWarning) warnings.push('wm_bin_not_found');
+      if (fixedBinWarning) warnings.push('fixed_bin_mismatch');
 
       const count = await api.post<Count>(`/sessions/${session.id}/counts`, {
         username,
@@ -210,6 +243,9 @@ export function CountForm({ onSubmitted, prefill, onPrefillConsumed }: CountForm
       setZbin('');
       setMaterialDesc(null);
       setQuestion('');
+      setMaterialWarning(null);
+      setBinWarning(null);
+      setFixedBinWarning(null);
       localStorage.setItem('countFormState', JSON.stringify({
         materialNumber: '', quantity: '', sloc, wmBin: '', zbin: '', question: ''
       }));
@@ -295,7 +331,7 @@ export function CountForm({ onSubmitted, prefill, onPrefillConsumed }: CountForm
               onChange={(e) => setWmBin(e.target.value.toUpperCase())}
               onKeyDown={handleWmBinKeyDown}
               placeholder="Scan or type WM bin"
-              className={`flex-1 min-h-[44px] px-3 border rounded-lg text-sm focus:outline-none focus:ring-2 uppercase ${binWarning ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'}`}
+              className={`flex-1 min-h-[44px] px-3 border rounded-lg text-sm focus:outline-none focus:ring-2 uppercase ${(binWarning || fixedBinWarning) ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'}`}
               autoComplete="off"
             />
             <button
@@ -308,6 +344,9 @@ export function CountForm({ onSubmitted, prefill, onPrefillConsumed }: CountForm
           </div>
           {binWarning && (
             <p className="text-xs text-red-600 mt-0.5 ml-1 bg-red-50 px-2 py-1 rounded">{binWarning}</p>
+          )}
+          {fixedBinWarning && (
+            <p className="text-xs text-orange-700 mt-0.5 ml-1 bg-orange-50 border border-orange-200 px-2 py-1 rounded">{fixedBinWarning}</p>
           )}
         </div>
       )}

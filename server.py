@@ -442,6 +442,15 @@ def validate_material(material_number):
 def validate_wm_bin(bin_code):
     return jsonify({'exists': WmBinService.bin_exists(bin_code)})
 
+@app.get('/api/validate/fixed-bin')
+def validate_fixed_bin():
+    material = request.args.get('material', '').strip()
+    wm_bin = request.args.get('wm_bin', '').strip()
+    if not material or not wm_bin:
+        return jsonify({'error': 'material and wm_bin required'}), 400
+    result = WmBinService.check_fixed_bin(material, wm_bin)
+    return jsonify(result)
+
 # ===== WM BINS =====
 @app.post('/api/wm-bins')
 def create_wm_bin():
@@ -667,6 +676,17 @@ def import_mseg():
         return err, code
     try:
         count = ImportService.import_mseg(rows)
+        return jsonify({'imported': count}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.post('/api/imports/lgplo')
+def import_lgplo():
+    rows, err, code = parse_csv_upload()
+    if err:
+        return err, code
+    try:
+        count = ImportService.import_lgplo(rows)
         return jsonify({'imported': count}), 201
     except Exception as e:
         return jsonify({'error': str(e)}), 400
