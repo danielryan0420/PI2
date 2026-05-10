@@ -210,6 +210,14 @@ class MessageService:
             ORDER BY m.sent_at ASC
         """, (session_id, username, username))
 
+    @staticmethod
+    def delete_message(message_id: int) -> bool:
+        existing = db.fetch_one("SELECT id FROM messages WHERE id = ?", (message_id,))
+        if not existing:
+            return False
+        db.execute("DELETE FROM messages WHERE id = ?", (message_id,))
+        return True
+
 
 class AuditService:
     @staticmethod

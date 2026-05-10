@@ -368,6 +368,13 @@ def get_general_messages(session_id):
     messages = MessageService.get_general_messages(session_id)
     return jsonify(messages)
 
+@app.delete('/api/messages/<int:message_id>')
+def delete_message(message_id):
+    deleted = MessageService.delete_message(message_id)
+    if not deleted:
+        return jsonify({'error': 'Message not found'}), 404
+    return jsonify({'deleted': True})
+
 @app.get('/api/counts/<int:count_id>/messages')
 def get_count_messages(count_id):
     messages = MessageService.get_count_messages(count_id)

@@ -102,6 +102,8 @@ export function OfficePage() {
   const [replyTarget, setReplyTarget] = useState<number | null>(null);
   const [replyText, setReplyText] = useState('');
   const [threadMessages, setThreadMessages] = useState<Message[]>([]);
+  const [deleteTarget, setDeleteTarget] = useState<Message | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   async function loadMessages() {
@@ -167,6 +169,18 @@ export function OfficePage() {
       loadThread(replyTarget);
       loadMessages();
     } catch { /**/ }
+  }
+
+  async function handleDeleteMessage() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await api.delete(`/messages/${deleteTarget.id}`);
+      setThreadMessages((prev) => prev.filter((m) => m.id !== deleteTarget.id));
+      loadMessages();
+      setDeleteTarget(null);
+    } catch { toast('Failed to delete message', 'error'); }
+    finally { setDeleting(false); }
   }
 
   const tabs: { key: Tab; label: string }[] = [
@@ -330,12 +344,31 @@ export function OfficePage() {
                         const labelClass = isAdmin ? 'text-purple-200' : isSystem ? 'text-amber-600 font-semibold' : 'text-gray-500';
                         const timeClass = isAdmin ? 'text-purple-300' : isSystem ? 'text-amber-500' : 'text-gray-400';
                         return (
-                          <div key={m.id} className={`flex ${isAdmin ? 'justify-end' : 'justify-start'}`}>
+                          <div key={m.id} className={`group flex items-end gap-1 ${isAdmin ? 'justify-end' : 'justify-start'}`}>
+                            {/* Delete button — left of bubble for admin msgs, right for counter/system */}
+                            {isAdmin && (
+                              <button
+                                onClick={() => setDeleteTarget(m)}
+                                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-400 hover:text-red-500 shrink-0"
+                                title="Delete message"
+                              >
+                                🗑
+                              </button>
+                            )}
                             <div className={`text-sm rounded-2xl px-4 py-2.5 max-w-[85%] ${bubbleClass}`}>
                               <div className={`text-xs mb-1 ${labelClass}`}>{isSystem ? '⚠️ SYSTEM' : m.sender}</div>
                               <div className="whitespace-pre-wrap">{m.body}</div>
                               <div className={`text-xs mt-1 ${timeClass}`}>{formatDateTime(m.sent_at)}</div>
                             </div>
+                            {!isAdmin && (
+                              <button
+                                onClick={() => setDeleteTarget(m)}
+                                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-400 hover:text-red-500 shrink-0"
+                                title="Delete message"
+                              >
+                                🗑
+                              </button>
+                            )}
                           </div>
                         );
                       })}
@@ -395,6 +428,17 @@ export function OfficePage() {
           </div>
         )}
       </Dialog>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDeleteMessage}
+        title="Delete message?"
+        message={`This will permanently remove the message from ${deleteTarget?.sender ?? ''}. This cannot be undone.`}
+        confirmLabel="Delete"
+        confirmVariant="danger"
+        loading={deleting}
+      />
     </AppShell>
   );
 }
