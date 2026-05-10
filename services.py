@@ -436,20 +436,21 @@ class ImportService:
     @staticmethod
     def get_import_status() -> Dict[str, Any]:
         tables = {
-            'sap_materials': 'SELECT COUNT(*) as count, MAX(updated_at) as updated_at FROM sap_materials',
-            'sap_plant_data': 'SELECT COUNT(*) as count, MAX(updated_at) as updated_at FROM sap_plant_data',
-            'sap_valuation': 'SELECT COUNT(*) as count, MAX(updated_at) as updated_at FROM sap_valuation',
-            'sap_mlgt': 'SELECT COUNT(*) as count, MAX(uploaded_at) as updated_at FROM sap_mlgt',
-            'sap_mlgn': 'SELECT COUNT(*) as count, MAX(uploaded_at) as updated_at FROM sap_mlgn',
-            'sap_lqua': 'SELECT COUNT(*) as count, MAX(uploaded_at) as updated_at FROM sap_lqua',
-            'sap_storage_types': 'SELECT COUNT(*) as count, MAX(uploaded_at) as updated_at FROM sap_storage_types',
-            'sap_storage_locations': 'SELECT COUNT(*) as count, MAX(uploaded_at) as updated_at FROM sap_storage_locations',
-            'wm_bins': 'SELECT COUNT(*) as count FROM wm_bins',
+            'sap_materials': ('SELECT COUNT(*) as count, MAX(updated_at) as updated_at FROM sap_materials', 'updated_at'),
+            'sap_plant_data': ('SELECT COUNT(*) as count, MAX(updated_at) as updated_at FROM sap_plant_data', 'updated_at'),
+            'sap_valuation': ('SELECT COUNT(*) as count, MAX(updated_at) as updated_at FROM sap_valuation', 'updated_at'),
+            'sap_mlgt': ('SELECT COUNT(*) as count, MAX(uploaded_at) as uploaded_at FROM sap_mlgt', 'uploaded_at'),
+            'sap_mlgn': ('SELECT COUNT(*) as count, MAX(uploaded_at) as uploaded_at FROM sap_mlgn', 'uploaded_at'),
+            'sap_lqua': ('SELECT COUNT(*) as count, MAX(uploaded_at) as uploaded_at FROM sap_lqua', 'uploaded_at'),
+            'sap_storage_types': ('SELECT COUNT(*) as count, MAX(uploaded_at) as uploaded_at FROM sap_storage_types', 'uploaded_at'),
+            'sap_storage_locations': ('SELECT COUNT(*) as count, MAX(uploaded_at) as uploaded_at FROM sap_storage_locations', 'uploaded_at'),
+            'wm_bins': ('SELECT COUNT(*) as count FROM wm_bins', None),
         }
         result = {}
-        for key, query in tables.items():
+        for key, (query, date_col) in tables.items():
             row = db.fetch_one(query)
-            result[key] = {'count': row['count'] if row else 0, 'updated_at': row['updated_at'] if row else None}
+            updated_at = row.get(date_col) if date_col and row else None
+            result[key] = {'count': row['count'] if row else 0, 'updated_at': updated_at}
         return result
 
     @staticmethod
