@@ -488,6 +488,7 @@ class ImportService:
 
     @staticmethod
     def import_materials(rows: List[Dict]) -> int:
+        db.execute("DELETE FROM sap_materials")
         count = 0
         for row in rows:
             mat = (row.get('material_number') or row.get('MATNR') or '').strip()
@@ -503,6 +504,7 @@ class ImportService:
 
     @staticmethod
     def import_plant_data(rows: List[Dict]) -> int:
+        db.execute("DELETE FROM sap_plant_data")
         count = 0
         for row in rows:
             mat = (row.get('material_number') or row.get('MATNR') or '').strip()
@@ -526,6 +528,7 @@ class ImportService:
 
     @staticmethod
     def import_valuation(rows: List[Dict]) -> int:
+        db.execute("DELETE FROM sap_valuation")
         count = 0
         for row in rows:
             mat = (row.get('material_number') or row.get('MATNR') or '').strip()
@@ -576,6 +579,7 @@ class ImportService:
 
     @staticmethod
     def import_mlgt(rows: List[Dict]) -> int:
+        db.execute("DELETE FROM sap_mlgt")
         count = 0
         for row in rows:
             mat = (row.get('material_number') or row.get('MATNR') or '').strip()
@@ -602,6 +606,7 @@ class ImportService:
 
     @staticmethod
     def import_mlgn(rows: List[Dict]) -> int:
+        db.execute("DELETE FROM sap_mlgn")
         count = 0
         for row in rows:
             mat = (row.get('material_number') or row.get('MATNR') or '').strip()
@@ -679,6 +684,7 @@ class ImportService:
 
     @staticmethod
     def import_lgap(rows: List[Dict]) -> int:
+        db.execute("DELETE FROM sap_lgap")
         count = 0
         for row in rows:
             bin_code = (row.get('bin_code') or row.get('BINID') or '').strip()
@@ -737,6 +743,7 @@ class ImportService:
 
     @staticmethod
     def import_wm_bins(rows: List[Dict]) -> int:
+        db.execute("DELETE FROM wm_bins")
         count = 0
         for row in rows:
             bin_code = (row.get('bin') or row.get('bin_code') or row.get('BIN') or '').strip()
