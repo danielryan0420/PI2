@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { AppShell } from '../components/layout/AppShell';
 import { Button } from '../components/ui/Button';
 import { Input, Textarea } from '../components/ui/Input';
@@ -15,9 +16,19 @@ type Tab = 'review' | 'messages';
 export function OfficePage() {
   const { username, role, session } = useSession();
   const { toast } = useToast();
-  const [tab, setTab] = useState<Tab>('review');
+  const [searchParams] = useSearchParams();
+  const initialTab = (searchParams.get('tab') as Tab) || 'review';
+  const [tab, setTab] = useState<Tab>(initialTab);
 
   const headers = { role: role ?? '', username };
+
+  // Sync tab state with query param (allows linking to specific tab)
+  useEffect(() => {
+    const tabParam = searchParams.get('tab') as Tab | null;
+    if (tabParam && tabParam !== tab) {
+      setTab(tabParam);
+    }
+  }, [searchParams]);
 
   // ─── Review tab state ────────────────────────────────────────────────────
   const [counts, setCounts] = useState<Count[]>([]);

@@ -462,16 +462,16 @@ function OverviewTab({ stats }: { stats: DashboardStats | null }) {
           </CardBody>
         </Card>
 
-        {/* Card 4: Open Questions — clickable, goes to /review */}
+        {/* Card 4: Open Questions — clickable, goes to /review messages tab */}
         <Card
           className={`cursor-pointer transition-shadow hover:shadow-md ${unread_messages > 0 ? 'ring-2 ring-amber-300' : ''}`}
-          onClick={() => navigate('/review')}
+          onClick={() => navigate('/review?tab=messages')}
         >
           <CardBody className="flex flex-col gap-1 py-4">
             <div className={`text-3xl font-bold leading-none ${unread_messages > 0 ? 'text-amber-600' : 'text-gray-400'}`}>
               {formatNumber(unread_messages, 0)}
             </div>
-            <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Unanswered Questions</div>
+            <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Messages & Alerts</div>
             {unread_messages > 0 ? (
               <span className="mt-2 self-start inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
