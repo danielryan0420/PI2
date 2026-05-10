@@ -283,14 +283,6 @@ CREATE TABLE IF NOT EXISTS sap_storage_locations (
     uploaded_at         TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
--- T300T: Storage Types (master data for warehouse storage type codes)
-CREATE TABLE IF NOT EXISTS sap_storage_types (
-    code                TEXT PRIMARY KEY,
-    description         TEXT,
-    control_type        TEXT,
-    uploaded_at         TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
 CREATE INDEX IF NOT EXISTS idx_mard_material ON sap_mard(material_number);
 CREATE INDEX IF NOT EXISTS idx_mard_plant ON sap_mard(plant);
 CREATE INDEX IF NOT EXISTS idx_mard_sloc ON sap_mard(storage_location);

@@ -443,8 +443,7 @@ class ImportService:
             'sap_mlgt': ('SELECT COUNT(*) as count, MAX(uploaded_at) as uploaded_at FROM sap_mlgt', 'uploaded_at'),
             'sap_mlgn': ('SELECT COUNT(*) as count, MAX(uploaded_at) as uploaded_at FROM sap_mlgn', 'uploaded_at'),
             'sap_lqua': ('SELECT COUNT(*) as count, MAX(uploaded_at) as uploaded_at FROM sap_lqua', 'uploaded_at'),
-            'sap_storage_types': ('SELECT COUNT(*) as count, MAX(uploaded_at) as uploaded_at FROM sap_storage_types', 'uploaded_at'),
-            'sap_storage_locations': ('SELECT COUNT(*) as count, MAX(uploaded_at) as updated_at FROM sap_storage_locations', 'updated_at'),
+            'sap_storage_locations': ('SELECT COUNT(*) as count, MAX(uploaded_at) as uploaded_at FROM sap_storage_locations', 'uploaded_at'),
             'wm_bins': ('SELECT COUNT(*) as count FROM wm_bins', None),
         }
         result = {}
@@ -498,6 +497,29 @@ class ImportService:
             mgroup = (row.get('material_group') or row.get('MATKL') or '').strip()
             MaterialService.create_or_update_material(mat, desc, uom, mtype, mgroup)
             count += 1
+        return count
+
+    @staticmethod
+    def import_plant_data(rows: List[Dict]) -> int:
+        count = 0
+        for row in rows:
+            mat = (row.get('material_number') or row.get('MATNR') or '').strip()
+            plant = (row.get('plant') or row.get('WERKS') or '').strip()
+            if not mat or not plant:
+                continue
+            try:
+                db.insert("""
+                    INSERT OR REPLACE INTO sap_plant_data
+                    (material_number, plant, mrp_type, updated_at)
+                    VALUES (?, ?, ?, ?)
+                """, (
+                    mat, plant,
+                    row.get('mrp_type') or row.get('DISMM') or '',
+                    datetime.now().isoformat()
+                ))
+                count += 1
+            except Exception:
+                continue
         return count
 
     @staticmethod
@@ -624,28 +646,6 @@ class ImportService:
                     float(row.get('quantity_restricted') or row.get('SPERR') or 0),
                     float(row.get('quantity_blocked') or row.get('CHARG') or 0),
                     row.get('uom') or row.get('MEINS') or ''
-                ))
-                count += 1
-            except Exception:
-                continue
-        return count
-
-    @staticmethod
-    def import_storage_types(rows: List[Dict]) -> int:
-        db.execute("DELETE FROM sap_storage_types")
-        count = 0
-        for row in rows:
-            code = (row.get('code') or row.get('LOTYP') or '').strip()
-            if not code:
-                continue
-            try:
-                db.insert("""
-                    INSERT INTO sap_storage_types (code, description, control_type)
-                    VALUES (?, ?, ?)
-                """, (
-                    code,
-                    row.get('description') or row.get('LOTYPX') or '',
-                    row.get('control_type') or row.get('LOSTYPETEXT') or ''
                 ))
                 count += 1
             except Exception:

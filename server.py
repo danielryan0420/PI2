@@ -523,7 +523,11 @@ def import_plant_data():
     rows, err, code = parse_csv_upload()
     if err:
         return err, code
-    return jsonify({'imported': 0}), 201  # placeholder
+    try:
+        count = ImportService.import_plant_data(rows)
+        return jsonify({'imported': count}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
 
 @app.post('/api/imports/valuation')
 def import_valuation():
@@ -590,17 +594,6 @@ def import_lqua():
         return err, code
     try:
         count = ImportService.import_lqua(rows)
-        return jsonify({'imported': count}), 201
-    except Exception as e:
-        return jsonify({'error': str(e)}), 400
-
-@app.post('/api/imports/storage-types')
-def import_storage_types():
-    rows, err, code = parse_csv_upload()
-    if err:
-        return err, code
-    try:
-        count = ImportService.import_storage_types(rows)
         return jsonify({'imported': count}), 201
     except Exception as e:
         return jsonify({'error': str(e)}), 400

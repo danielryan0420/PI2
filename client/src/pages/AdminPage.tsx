@@ -422,28 +422,12 @@ export function AdminPage() {
             </Card>
 
             <Card>
-              <CardHeader><h3 className="font-semibold text-gray-700 text-sm">Storage Types</h3></CardHeader>
-              <CardBody className="flex flex-col gap-2">
-                {importStatus['sap_storage_types'] && (
-                  <p className="text-xs text-gray-500">{importStatus['sap_storage_types'].count} rows · Updated {importStatus['sap_storage_types'].updated_at ? formatDateTime(importStatus['sap_storage_types'].updated_at!) : 'never'}</p>
-                )}
-                <label className={`inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-lg border border-dashed border-gray-400 cursor-pointer text-sm text-gray-600 hover:bg-gray-50 ${importing === 'storage_types' ? 'opacity-50 pointer-events-none' : ''}`}>
-                  {importing === 'storage_types' ? '⟳ Importing…' : '↑ Upload CSV or XLSX'}
-                  <input type="file" accept=".csv,.xlsx,.xls,.txt" className="hidden" onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleImport('storage_types', '/imports/storage-types', file);
-                    e.target.value = '';
-                  }} />
-                </label>
-              </CardBody>
-            </Card>
-
-            <Card>
-              <CardHeader><h3 className="font-semibold text-gray-700 text-sm">Storage Locations</h3></CardHeader>
+              <CardHeader><h3 className="font-semibold text-gray-700 text-sm">T300T (Storage Locations)</h3></CardHeader>
               <CardBody className="flex flex-col gap-2">
                 {importStatus['sap_storage_locations'] && (
                   <p className="text-xs text-gray-500">{importStatus['sap_storage_locations'].count} rows · Updated {importStatus['sap_storage_locations'].updated_at ? formatDateTime(importStatus['sap_storage_locations'].updated_at!) : 'never'}</p>
                 )}
+                <p className="text-xs text-gray-500">SAP warehouse storage location master data. Columns: LGORT, WERKS, LGOBE, LOTYP.</p>
                 <label className={`inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-lg border border-dashed border-gray-400 cursor-pointer text-sm text-gray-600 hover:bg-gray-50 ${importing === 'storage_locations' ? 'opacity-50 pointer-events-none' : ''}`}>
                   {importing === 'storage_locations' ? '⟳ Importing…' : '↑ Upload CSV or XLSX'}
                   <input type="file" accept=".csv,.xlsx,.xls,.txt" className="hidden" onChange={(e) => {
