@@ -741,30 +741,6 @@ class ImportService:
                 continue
         return count
 
-    @staticmethod
-    def import_wm_bins(rows: List[Dict]) -> int:
-        db.execute("DELETE FROM wm_bins")
-        count = 0
-        for row in rows:
-            bin_code = (row.get('bin') or row.get('bin_code') or row.get('BIN') or '').strip()
-            storage_type = (row.get('storage_type') or row.get('LOTYP') or '').strip()
-            sloc = (row.get('sloc') or row.get('storage_location') or row.get('LGORT') or '').strip()
-            if not bin_code or not storage_type or not sloc:
-                continue
-            try:
-                db.insert("""
-                    INSERT OR IGNORE INTO wm_bins (bin, storage_type, sloc, description)
-                    VALUES (?, ?, ?, ?)
-                """, (
-                    bin_code, storage_type, sloc,
-                    row.get('description') or row.get('BINTEXT') or ''
-                ))
-                count += 1
-            except Exception:
-                continue
-        return count
-
-
 class DashboardService:
     @staticmethod
     def get_session_summary(session_id: int) -> Dict[str, Any]:

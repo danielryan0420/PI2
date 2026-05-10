@@ -642,17 +642,6 @@ def import_mseg():
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
-@app.post('/api/imports/wm-bins')
-def import_wm_bins():
-    rows, err, code = parse_csv_upload()
-    if err:
-        return err, code
-    try:
-        count = ImportService.import_wm_bins(rows)
-        return jsonify({'imported': count}), 201
-    except Exception as e:
-        return jsonify({'error': str(e)}), 400
-
 # ===== EXPORT =====
 @app.get('/api/sessions/<int:session_id>/export')
 def export_session(session_id):

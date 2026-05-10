@@ -8,9 +8,9 @@ import { useSession } from '../context/SessionContext';
 import { useToast } from '../context/ToastContext';
 import { api } from '../lib/api';
 import { formatDateTime } from '../lib/utils';
-import type { User, Role, InventorySession, SlocConfig, WmBin, WmBinMaterial } from '../types';
+import type { User, Role, InventorySession, SlocConfig } from '../types';
 
-type Tab = 'users' | 'data' | 'export' | 'config' | 'wmbins';
+type Tab = 'users' | 'data' | 'export' | 'config';
 
 const ROLE_OPTIONS = [
   { value: 'counter', label: 'Counter' },
@@ -188,90 +188,11 @@ export function AdminPage() {
     } catch { toast('Failed to remove', 'error'); }
   }
 
-  // ─── WM Bins tab ──────────────────────────────────────────────────────────
-  const [wmBins, setWmBins] = useState<WmBin[]>([]);
-  const [wmBinMaterials, setWmBinMaterials] = useState<Record<number, WmBinMaterial[]>>({});
-  const [selectedBin, setSelectedBin] = useState<WmBin | null>(null);
-  const [wmFilterSloc, setWmFilterSloc] = useState('');
-  const [wmFilterType, setWmFilterType] = useState('');
-  const [newBin, setNewBin] = useState('');
-  const [newBinSloc, setNewBinSloc] = useState('');
-  const [newBinType, setNewBinType] = useState<'100' | '200'>('100');
-  const [newBinDesc, setNewBinDesc] = useState('');
-  const [addingBin, setAddingBin] = useState(false);
-  const [newMatForBin, setNewMatForBin] = useState('');
-  const [addingMat, setAddingMat] = useState(false);
-
-  async function loadWmBins() {
-    try {
-      const params = new URLSearchParams();
-      if (wmFilterSloc) params.set('sloc', wmFilterSloc);
-      if (wmFilterType) params.set('storage_type', wmFilterType);
-      const data = await api.get<WmBin[]>(`/wm-bins?${params}`, headers);
-      setWmBins(data);
-    } catch { /**/ }
-  }
-
-  async function loadBinMaterials(binId: number) {
-    try {
-      const data = await api.get<WmBinMaterial[]>(`/wm-bins/${binId}/materials`);
-      setWmBinMaterials((prev) => ({ ...prev, [binId]: data }));
-    } catch { /**/ }
-  }
-
-  useEffect(() => { if (tab === 'wmbins') loadWmBins(); }, [tab, wmFilterSloc, wmFilterType]);
-  useEffect(() => { if (selectedBin) loadBinMaterials(selectedBin.id); }, [selectedBin?.id]);
-
-  async function handleAddBin() {
-    if (!newBin.trim() || !newBinSloc.trim()) { toast('Bin and SLOC are required', 'error'); return; }
-    setAddingBin(true);
-    try {
-      await api.post('/wm-bins', { bin: newBin, storage_type: newBinType, sloc: newBinSloc, description: newBinDesc || undefined }, headers);
-      toast('Bin added', 'success');
-      setNewBin(''); setNewBinDesc('');
-      loadWmBins();
-    } catch (e) { toast(e instanceof Error ? e.message : 'Failed', 'error'); }
-    finally { setAddingBin(false); }
-  }
-
-  async function handleDeleteBin(bin: WmBin) {
-    try {
-      await api.delete(`/wm-bins/${bin.id}`, headers);
-      toast(`Bin ${bin.bin} deleted`, 'success');
-      if (selectedBin?.id === bin.id) setSelectedBin(null);
-      loadWmBins();
-    } catch { toast('Failed to delete bin', 'error'); }
-  }
-
-  async function handleAddMaterial() {
-    if (!selectedBin || !newMatForBin.trim()) return;
-    setAddingMat(true);
-    try {
-      await api.post(`/wm-bins/${selectedBin.id}/materials`, { material_number: newMatForBin }, headers);
-      toast(`${newMatForBin.toUpperCase()} linked`, 'success');
-      setNewMatForBin('');
-      loadBinMaterials(selectedBin.id);
-      loadWmBins();
-    } catch (e) { toast(e instanceof Error ? e.message : 'Failed', 'error'); }
-    finally { setAddingMat(false); }
-  }
-
-  async function handleRemoveMaterial(matNum: string) {
-    if (!selectedBin) return;
-    try {
-      await api.delete(`/wm-bins/${selectedBin.id}/materials/${matNum}`, headers);
-      toast('Material unlinked', 'success');
-      loadBinMaterials(selectedBin.id);
-      loadWmBins();
-    } catch { toast('Failed', 'error'); }
-  }
-
-  const tabs: { key: Tab; label: string }[] = [
+const tabs: { key: Tab; label: string }[] = [
     { key: 'users', label: 'Users & Sessions' },
     { key: 'data', label: 'SAP Data' },
     { key: 'export', label: 'Export' },
     { key: 'config', label: 'SLOC Config' },
-    { key: 'wmbins', label: 'WM Bins' },
   ];
 
   return (
@@ -507,27 +428,6 @@ export function AdminPage() {
               </CardBody>
             </Card>
 
-            <Card>
-              <CardHeader><h3 className="font-semibold text-gray-700 text-sm">WM Bins (Bulk Import)</h3></CardHeader>
-              <CardBody className="flex flex-col gap-2">
-                {importStatus['wm_bins'] ? (
-                  <div className="bg-blue-50 rounded px-2 py-1">
-                    <p className="text-xs font-medium text-blue-900">📊 Records: <span className="font-bold">{importStatus['wm_bins'].count.toLocaleString()}</span></p>
-                  </div>
-                ) : (
-                  <div className="bg-gray-50 rounded px-2 py-1 text-xs text-gray-600">No data loaded yet</div>
-                )}
-                <p className="text-xs text-gray-500">Import bin master data. Can also add manually in WM Bins tab.</p>
-                <label className={`inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-lg border border-dashed border-gray-400 cursor-pointer text-sm text-gray-600 hover:bg-gray-50 ${importing === 'wm_bins' ? 'opacity-50 pointer-events-none' : ''}`}>
-                  {importing === 'wm_bins' ? '⟳ Importing…' : '↑ Upload CSV or XLSX'}
-                  <input type="file" accept=".csv,.xlsx,.xls,.txt" className="hidden" onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleImport('wm_bins', '/imports/wm-bins', file);
-                    e.target.value = '';
-                  }} />
-                </label>
-              </CardBody>
-            </Card>
           </div>
         )}
 
@@ -610,101 +510,6 @@ export function AdminPage() {
           </div>
         )}
 
-        {/* ─── WM BINS TAB ─── */}
-        {tab === 'wmbins' && (
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-            <div className="lg:col-span-2 flex flex-col gap-3">
-              <Card>
-                <CardHeader><h3 className="font-semibold text-gray-700 text-sm">Add New Bin</h3></CardHeader>
-                <CardBody className="flex flex-col gap-2">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-xs text-gray-500 mb-1 block">Bin</label>
-                      <input value={newBin} onChange={(e) => setNewBin(e.target.value.toUpperCase())} onKeyDown={(e) => e.key === 'Enter' && handleAddBin()} placeholder="e.g. A-01-01" className="w-full min-h-[44px] px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500 mb-1 block">SLOC</label>
-                      <input value={newBinSloc} onChange={(e) => setNewBinSloc(e.target.value.toUpperCase())} placeholder="e.g. 0001" className="w-full min-h-[44px] px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-500 mb-1 block">Storage Type</label>
-                    <select value={newBinType} onChange={(e) => setNewBinType(e.target.value as '100' | '200')} className="w-full min-h-[44px] px-3 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-                      <option value="100">100 — Fixed Bin</option>
-                      <option value="200">200 — Secondary Bin</option>
-                    </select>
-                  </div>
-                  <input value={newBinDesc} onChange={(e) => setNewBinDesc(e.target.value)} placeholder="Description (optional)" className="w-full min-h-[44px] px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                  <Button onClick={handleAddBin} loading={addingBin}>Add Bin</Button>
-                </CardBody>
-              </Card>
-
-              <div className="flex gap-2">
-                <input value={wmFilterSloc} onChange={(e) => setWmFilterSloc(e.target.value.toUpperCase())} placeholder="Filter SLOC…" className="flex-1 min-h-[44px] px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                <select value={wmFilterType} onChange={(e) => setWmFilterType(e.target.value)} className="min-h-[44px] px-3 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  <option value="">All types</option>
-                  <option value="100">100 – Fixed</option>
-                  <option value="200">200 – Secondary</option>
-                </select>
-              </div>
-
-              <div className="flex flex-col gap-1.5 overflow-y-auto" style={{ maxHeight: 480 }}>
-                {wmBins.length === 0 ? (
-                  <div className="text-sm text-gray-400 text-center py-8 border border-dashed border-gray-200 rounded-xl">No bins configured yet</div>
-                ) : wmBins.map((b) => (
-                  <div key={b.id} onClick={() => setSelectedBin(b)} className={`cursor-pointer rounded-xl border px-3 py-2.5 transition-colors flex items-center gap-2 ${selectedBin?.id === b.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white hover:border-blue-300'}`}>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono font-semibold text-gray-800">{b.bin}</span>
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${b.storage_type === '100' ? 'bg-orange-100 text-orange-700' : 'bg-teal-100 text-teal-700'}`}>{b.storage_type === '100' ? 'Fixed' : 'Secondary'}</span>
-                      </div>
-                      <div className="text-xs text-gray-400">{b.sloc}{b.description ? ` · ${b.description}` : ''} · {b.material_count} material{b.material_count !== 1 ? 's' : ''}</div>
-                    </div>
-                    <button onClick={(e) => { e.stopPropagation(); handleDeleteBin(b); }} className="no-min-h p-1 text-red-400 hover:text-red-600 text-sm" title="Delete bin">✕</button>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="lg:col-span-3">
-              {!selectedBin ? (
-                <div className="bg-white rounded-xl border border-gray-200 flex items-center justify-center h-64 text-sm text-gray-400">Select a bin to manage its materials</div>
-              ) : (
-                <Card>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="font-mono font-bold text-gray-800 text-base">{selectedBin.bin}</span>
-                        <span className={`ml-2 text-xs px-2 py-0.5 rounded font-medium ${selectedBin.storage_type === '100' ? 'bg-orange-100 text-orange-700' : 'bg-teal-100 text-teal-700'}`}>
-                          Type {selectedBin.storage_type} — {selectedBin.storage_type === '100' ? 'Fixed Bin' : 'Secondary Bin'}
-                        </span>
-                      </div>
-                      <span className="text-xs text-gray-400">SLOC: {selectedBin.sloc}</span>
-                    </div>
-                    {selectedBin.description && <p className="text-xs text-gray-500 mt-1">{selectedBin.description}</p>}
-                  </CardHeader>
-                  <CardBody className="flex flex-col gap-3">
-                    <div className="flex gap-2">
-                      <input value={newMatForBin} onChange={(e) => setNewMatForBin(e.target.value.toUpperCase())} onKeyDown={(e) => e.key === 'Enter' && handleAddMaterial()} placeholder="Material number to link…" className="flex-1 min-h-[44px] px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
-                      <Button onClick={handleAddMaterial} loading={addingMat} disabled={!newMatForBin.trim()}>Link</Button>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      {(wmBinMaterials[selectedBin.id] ?? []).length === 0 ? (
-                        <div className="text-sm text-gray-400 text-center py-6 border border-dashed border-gray-200 rounded-xl">No materials linked to this bin yet</div>
-                      ) : (wmBinMaterials[selectedBin.id] ?? []).map((m) => (
-                        <div key={m.id} className="flex items-center gap-3 bg-gray-50 rounded-lg px-3 py-2">
-                          <span className="font-mono text-sm font-semibold text-gray-800 flex-shrink-0">{m.material_number}</span>
-                          <span className="flex-1 text-xs text-gray-500 truncate">{m.material_description ?? '—'}</span>
-                          <button onClick={() => handleRemoveMaterial(m.material_number)} className="no-min-h p-1 text-red-400 hover:text-red-600 text-sm flex-shrink-0" title="Unlink material">✕</button>
-                        </div>
-                      ))}
-                    </div>
-                  </CardBody>
-                </Card>
-              )}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Add user dialog */}
