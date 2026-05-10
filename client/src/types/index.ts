@@ -154,6 +154,19 @@ export interface HighValueItem {
   material_number: string;
   description: string | null;
   total_value: number | null;
+  total_stock: number | null;
   submission_count: number;
   latest_status: string | null;
+  counted_qty: number | null;
+}
+
+export interface ProblemMaterial {
+  material_number: string;
+  description: string | null;
+  movement_count: number;
+  adj_count: number;
+  transfer_count: number;
+  issue_count: number;
+  last_movement: string | null;
+  movement_types: string;
 }

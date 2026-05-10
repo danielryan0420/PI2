@@ -952,3 +952,45 @@ class DashboardService:
             GROUP BY s.sloc
             ORDER BY ABS(COALESCE(SUM(c.quantity), 0) - SUM(s.sap_quantity)) DESC
         """, (session_id,))
+
+    @staticmethod
+    def get_problem_materials() -> List[Dict]:
+        return db.fetch_all("""
+            SELECT
+                m.material_number,
+                sm.description,
+                COUNT(*) as movement_count,
+                SUM(CASE WHEN m.movement_type IN ('911','912') THEN 1 ELSE 0 END) as adj_count,
+                SUM(CASE WHEN m.movement_type = '309' THEN 1 ELSE 0 END) as transfer_count,
+                SUM(CASE WHEN m.movement_type IN ('201','202','221','222') THEN 1 ELSE 0 END) as issue_count,
+                MAX(m.posting_date) as last_movement,
+                GROUP_CONCAT(DISTINCT m.movement_type) as movement_types
+            FROM sap_mseg m
+            LEFT JOIN sap_materials sm ON sm.material_number = m.material_number
+            GROUP BY m.material_number
+            HAVING adj_count >= 2 OR movement_count >= 5
+            ORDER BY adj_count DESC, movement_count DESC
+            LIMIT 50
+        """)
+
+    @staticmethod
+    def get_high_value_materials(session_id: int) -> List[Dict]:
+        return db.fetch_all("""
+            SELECT
+                v.material_number,
+                sm.description,
+                v.total_value,
+                v.total_stock,
+                COALESCE(c.status, 'not_counted') as status,
+                c.quantity as counted_qty
+            FROM sap_valuation v
+            LEFT JOIN sap_materials sm ON sm.material_number = v.material_number
+            LEFT JOIN (
+                SELECT material_number, status, quantity,
+                       ROW_NUMBER() OVER (PARTITION BY material_number ORDER BY updated_at DESC) as rn
+                FROM counts WHERE session_id = ?
+            ) c ON c.material_number = v.material_number AND c.rn = 1
+            WHERE v.total_value > 0
+            ORDER BY v.total_value DESC
+            LIMIT 20
+        """, (session_id,))

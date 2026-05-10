@@ -713,6 +713,16 @@ def get_discrepancies(session_id):
     discrepancies = DashboardService.get_discrepancies(session_id)
     return jsonify(discrepancies)
 
+@app.get('/api/dashboard/problem-materials')
+def get_problem_materials():
+    data = DashboardService.get_problem_materials()
+    return jsonify(data)
+
+@app.get('/api/sessions/<int:session_id>/dashboard/high-value')
+def get_high_value(session_id):
+    data = DashboardService.get_high_value_materials(session_id)
+    return jsonify(data)
+
 # ===== HEALTH CHECK =====
 @app.get('/health')
 def health():
