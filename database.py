@@ -298,6 +298,26 @@ CREATE TABLE IF NOT EXISTS sap_lgap (
     UNIQUE(bin_code, plant, storage_location)
 );
 
+-- MSEG: Material Segment Movements (for issue tracking)
+CREATE TABLE IF NOT EXISTS sap_mseg (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    material_number     TEXT NOT NULL,
+    plant               TEXT NOT NULL,
+    document_number     TEXT,
+    year_number         TEXT,
+    line_item           TEXT,
+    storage_location    TEXT,
+    movement_type       TEXT,  -- 201/202 (receipt), 221/222 (usage), 309 (transfer), 911/912 (adjustment)
+    posting_date        TEXT,
+    quantity            REAL,
+    uploaded_at         TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_mseg_material ON sap_mseg(material_number);
+CREATE INDEX IF NOT EXISTS idx_mseg_movement ON sap_mseg(movement_type);
+CREATE INDEX IF NOT EXISTS idx_mseg_plant ON sap_mseg(plant);
+CREATE INDEX IF NOT EXISTS idx_mseg_date ON sap_mseg(posting_date);
+
 CREATE INDEX IF NOT EXISTS idx_mard_material ON sap_mard(material_number);
 CREATE INDEX IF NOT EXISTS idx_mard_plant ON sap_mard(plant);
 CREATE INDEX IF NOT EXISTS idx_mard_sloc ON sap_mard(storage_location);

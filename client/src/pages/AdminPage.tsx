@@ -440,6 +440,24 @@ export function AdminPage() {
             </Card>
 
             <Card>
+              <CardHeader><h3 className="font-semibold text-gray-700 text-sm">MSEG (Material Movements)</h3></CardHeader>
+              <CardBody className="flex flex-col gap-2">
+                {importStatus['sap_mseg'] && (
+                  <p className="text-xs text-gray-500">{importStatus['sap_mseg'].count} movements · Updated {importStatus['sap_mseg'].updated_at ? formatDateTime(importStatus['sap_mseg'].updated_at!) : 'never'}</p>
+                )}
+                <p className="text-xs text-gray-500">Material movements (201/202 receipt, 221/222 usage, 309 transfers, 911/912 adjustments). Identifies high-issue materials.</p>
+                <label className={`inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-lg border border-dashed border-gray-400 cursor-pointer text-sm text-gray-600 hover:bg-gray-50 ${importing === 'mseg' ? 'opacity-50 pointer-events-none' : ''}`}>
+                  {importing === 'mseg' ? '⟳ Importing…' : '↑ Upload MSEG CSV or XLSX'}
+                  <input type="file" accept=".csv,.xlsx,.xls,.txt" className="hidden" onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleImport('mseg', '/imports/mseg', file);
+                    e.target.value = '';
+                  }} />
+                </label>
+              </CardBody>
+            </Card>
+
+            <Card>
               <CardHeader><h3 className="font-semibold text-gray-700 text-sm">LGAP (Storage Bins)</h3></CardHeader>
               <CardBody className="flex flex-col gap-2">
                 {importStatus['sap_lgap'] && (

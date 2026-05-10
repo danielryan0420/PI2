@@ -445,6 +445,7 @@ class ImportService:
             'sap_lqua': ('SELECT COUNT(*) as count, MAX(uploaded_at) as uploaded_at FROM sap_lqua', 'uploaded_at'),
             'sap_storage_locations': ('SELECT COUNT(*) as count, MAX(uploaded_at) as uploaded_at FROM sap_storage_locations', 'uploaded_at'),
             'sap_lgap': ('SELECT COUNT(*) as count, MAX(uploaded_at) as uploaded_at FROM sap_lgap', 'uploaded_at'),
+            'sap_mseg': ('SELECT COUNT(*) as count, MAX(uploaded_at) as uploaded_at FROM sap_mseg', 'uploaded_at'),
             'wm_bins': ('SELECT COUNT(*) as count FROM wm_bins', None),
         }
         result = {}
@@ -697,6 +698,37 @@ class ImportService:
                     row.get('description') or row.get('BINTEXT') or '',
                     float(row.get('capacity_qty') or row.get('MAXKG') or 0) if row.get('capacity_qty') or row.get('MAXKG') else None,
                     row.get('capacity_uom') or row.get('MEINS') or ''
+                ))
+                count += 1
+            except Exception:
+                continue
+        return count
+
+    @staticmethod
+    def import_mseg(rows: List[Dict]) -> int:
+        db.execute("DELETE FROM sap_mseg")
+        count = 0
+        for row in rows:
+            mat = (row.get('material_number') or row.get('MATNR') or '').strip()
+            plant = (row.get('plant') or row.get('WERKS') or '').strip()
+            mvtype = (row.get('movement_type') or row.get('BWART') or '').strip()
+            if not mat or not plant or not mvtype:
+                continue
+            try:
+                db.insert("""
+                    INSERT INTO sap_mseg
+                    (material_number, plant, document_number, year_number, line_item, storage_location,
+                     movement_type, posting_date, quantity)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    mat, plant,
+                    row.get('document_number') or row.get('MBLNR') or '',
+                    row.get('year_number') or row.get('MJAHR') or '',
+                    row.get('line_item') or row.get('ZEILE') or '',
+                    row.get('storage_location') or row.get('LGORT') or '',
+                    mvtype,
+                    row.get('posting_date') or row.get('BUDAT') or '',
+                    float(row.get('quantity') or row.get('MENGE') or 0)
                 ))
                 count += 1
             except Exception:

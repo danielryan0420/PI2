@@ -1,0 +1,106 @@
+MATNR,MAKTX,MEINS,MTART,MATKL
+100-00001,Aluminum Sheet 1mm,KG,FERT,1000
+100-00002,Steel Rod 12mm,M,FERT,1100
+100-00003,Copper Pipe 15mm,M,FERT,1200
+100-00004,Plastic Resin Grade A,KG,RAW,2000
+100-00005,Rubber Gasket Small,EA,FERT,3000
+100-00006,Motor Assembly 5HP,EA,FERT,4000
+100-00007,Bearing Ball 25mm,EA,FERT,5000
+100-00008,Hydraulic Fluid ISO 46,L,RAW,6000
+100-00009,Paint White Enamel,L,RAW,7000
+100-00010,Bolt M10x50 DIN 933,EA,FERT,8000
+100-00011,Aluminum Profile 40x40,M,FERT,1000
+100-00012,Stainless Steel Tube,M,FERT,1100
+100-00013,Nylon Washer 25mm,EA,FERT,3000
+100-00014,PVC Pipe Schedule 40,M,FERT,2000
+100-00015,Epoxy Resin 2-Part,KG,RAW,7000
+100-00016,Ferrite Core Toroid,EA,FERT,5000
+100-00017,Mica Sheet 0.5mm,M,RAW,9000
+100-00018,Silicone Sealant,L,RAW,7000
+100-00019,Aluminum Extrusion 20x20,M,FERT,1000
+100-00020,Carbon Steel Flat Bar,KG,FERT,1100
+100-00021,Wire Rope 6mm 6x36,M,FERT,1200
+100-00022,Copper Sheet 1mm,KG,FERT,1200
+100-00023,Brass Rod 10mm,M,FERT,1100
+100-00024,Titanium Plate Grade 2,KG,FERT,1300
+100-00025,Nickel 200 Sheet,KG,FERT,1400
+100-00026,Tungsten Rod 5mm,M,FERT,1500
+100-00027,Molybdenum Wire,M,FERT,1500
+100-00028,Chromium Electrodes,KG,RAW,1000
+100-00029,Magnesium Alloy Ingot,KG,RAW,1600
+100-00030,Aluminum Foil 0.05mm,M,RAW,1000
+100-00031,Glass Fiber Cloth,M,RAW,2000
+100-00032,Carbon Fiber Weave,M,RAW,2100
+100-00033,Kevlar Thread,M,RAW,2200
+100-00034,Polycarbonate Sheet,M,FERT,2300
+100-00035,PMMA Acrylic Sheet,M,FERT,2300
+100-00036,PET Film Roll,M,RAW,2400
+100-00037,Mylar Capacitor Film,M,RAW,2400
+100-00038,Kapton Tape,M,RAW,2500
+100-00039,Fiberglass Insulation,M,RAW,2600
+100-00040,Mineral Wool Batting,M,RAW,2600
+100-00041,Ceramic Tile 30x30,EA,FERT,3100
+100-00042,Limestone Powder,KG,RAW,3200
+100-00043,Dolomite Aggregate,KG,RAW,3300
+100-00044,Cement Portland Type I,KG,RAW,3400
+100-00045,Gypsum Board,M2,FERT,3500
+100-00046,Mortar Mix Powder,KG,RAW,3600
+100-00047,Concrete Additive,L,RAW,3700
+100-00048,Marble Chips 10-20mm,KG,RAW,3800
+100-00049,Granite Aggregate,KG,RAW,3900
+100-00050,Basalt Fiber Roving,KG,RAW,4000
+100-00051,Phenolic Resin,KG,RAW,4100
+100-00052,Melamine Resin,KG,RAW,4200
+100-00053,Polyester Resin Unsaturated,KG,RAW,4300
+100-00054,Polystyrene Beads,KG,RAW,4400
+100-00055,Polyurethane Foam,KG,RAW,4500
+100-00056,Silicone Rubber Compound,KG,RAW,4600
+100-00057,Butyl Rubber Roll,KG,RAW,4700
+100-00058,Natural Rubber Sheet,KG,RAW,4800
+100-00059,EPDM Rubber Strip,M,FERT,4900
+100-00060,Neoprene Foam,M,RAW,5000
+100-00061,Viton O-Ring Assortment,EA,FERT,5100
+100-00062,Cork Gasket Sheet,M2,RAW,5200
+100-00063,Asbestos-Free Pad,M2,RAW,5300
+100-00064,Carbon Paper Copy,EA,FERT,5400
+100-00065,Thermal Transfer Ribbon,M,RAW,5500
+100-00066,Label Stock Adhesive,M,RAW,5600
+100-00067,Kraft Paper Roll,M,RAW,5700
+100-00068,Plastic Film Wrap,M,RAW,5800
+100-00069,Bubble Wrap Roll,M,RAW,5900
+100-00070,Foam Padding Sheet,M,RAW,6000
+100-00071,Corrugated Cardboard,M2,RAW,6100
+100-00072,Packaging Tape,M,RAW,6200
+100-00073,Stretch Film Pallet,KG,RAW,6300
+100-00074,Shrink Wrap Tube,M,RAW,6400
+100-00075,Zip Lock Bags Assorted,EA,FERT,6500
+100-00076,Tissue Paper Roll,M,RAW,6600
+100-00077,Wax Paper Sheet,M,RAW,6700
+100-00078,Grease Lithium Complex,KG,RAW,6800
+100-00079,Oil Machine 32cSt,L,RAW,6900
+100-00080,Coolant Emulsion,L,RAW,7000
+100-00081,Solvents Acetone,L,RAW,7100
+100-00082,Alcohol Isopropyl,L,RAW,7200
+100-00083,Thinner Lacquer,L,RAW,7300
+100-00084,Primer Epoxy,L,RAW,7400
+100-00085,Paint Polyurethane,L,RAW,7500
+100-00086,Varnish Polyester,L,RAW,7600
+100-00087,Stain Wood Finish,L,RAW,7700
+100-00088,Adhesive Cyanoacrylate,L,RAW,7800
+100-00089,Sealant Polyurethane,L,RAW,7900
+100-00090,Putty Epoxy Stick,KG,RAW,8000
+100-00091,Flux Solder Wire,M,RAW,8100
+100-00092,Solder Bar Lead-Free,KG,RAW,8200
+100-00093,Welding Wire MIG Steel,KG,RAW,8300
+100-00094,Welding Rod Electrode,KG,RAW,8400
+100-00095,Cutting Fluid Synthetic,L,RAW,8500
+100-00096,Cleaner Parts Degreaser,L,RAW,8600
+100-00097,Lubricant Spray Penetrating,L,RAW,8700
+100-00098,Rust Inhibitor VCI,KG,RAW,8800
+100-00099,Safety Solvent Cleaner,L,RAW,8900
+100-00100,Biodegradable Degreaser,L,RAW,9000
+100-00101,Catalyst Hardener,L,RAW,9100
+100-00102,Plasticizer Diethyl,L,RAW,9200
+100-00103,Colorant Pigment Black,KG,RAW,9300
+100-00104,UV Absorber,KG,RAW,9400
+100-00105,Antioxidant BHT,KG,RAW,9500
