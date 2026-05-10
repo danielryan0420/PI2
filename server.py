@@ -440,8 +440,7 @@ def validate_material(material_number):
 
 @app.get('/api/validate/wm-bin/<bin_code>')
 def validate_wm_bin(bin_code):
-    result = db.fetch_one("SELECT id FROM wm_bins WHERE bin = ? LIMIT 1", (bin_code.upper(),))
-    return jsonify({'exists': result is not None})
+    return jsonify({'exists': WmBinService.bin_exists(bin_code)})
 
 # ===== WM BINS =====
 @app.post('/api/wm-bins')

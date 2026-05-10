@@ -403,6 +403,14 @@ class WmBinService:
         db.execute("DELETE FROM wm_bins WHERE id = ?", (bin_id,))
 
     @staticmethod
+    def bin_exists(bin_code: str) -> bool:
+        result = db.fetch_one(
+            "SELECT id FROM sap_lgap WHERE UPPER(bin_code) = ? LIMIT 1",
+            (bin_code.upper(),)
+        )
+        return result is not None
+
+    @staticmethod
     def delete_bin_material(bin_id: int, material_number: str) -> None:
         db.execute(
             "DELETE FROM wm_bin_materials WHERE bin_id = ? AND material_number = ?",

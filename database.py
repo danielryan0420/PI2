@@ -48,7 +48,6 @@ CREATE TABLE IF NOT EXISTS counts (
     wm_bin          TEXT,
     zbin            TEXT,
     status          TEXT NOT NULL DEFAULT 'pending',
-    validation_warnings TEXT,
     created_at      TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -57,7 +56,6 @@ CREATE INDEX IF NOT EXISTS idx_counts_session ON counts(session_id);
 CREATE INDEX IF NOT EXISTS idx_counts_material ON counts(material_number);
 CREATE INDEX IF NOT EXISTS idx_counts_sloc ON counts(sloc);
 CREATE INDEX IF NOT EXISTS idx_counts_username ON counts(username);
-CREATE INDEX IF NOT EXISTS idx_counts_warnings ON counts(validation_warnings);
 
 -- Photos linked to counts
 CREATE TABLE IF NOT EXISTS photos (
@@ -330,6 +328,9 @@ CREATE INDEX IF NOT EXISTS idx_lqua_sloc ON sap_lqua(storage_location);
 CREATE INDEX IF NOT EXISTS idx_lgap_plant ON sap_lgap(plant);
 CREATE INDEX IF NOT EXISTS idx_lgap_sloc ON sap_lgap(storage_location);
 CREATE INDEX IF NOT EXISTS idx_lgap_bin ON sap_lgap(bin_code);
+"""),
+    ("011_count_validation_warnings.sql", """
+ALTER TABLE counts ADD COLUMN validation_warnings TEXT;
 """),
 ]
 
