@@ -354,6 +354,11 @@ def list_sloc_config():
     slocs = SlocConfigService.list_slocs()
     return jsonify(slocs)
 
+@app.get('/api/sloc-config/available')
+def list_available_slocs():
+    result = SlocConfigService.get_available_slocs()
+    return jsonify(result)
+
 @app.post('/api/sloc-config')
 def create_sloc_config():
     data = request.json
@@ -375,6 +380,20 @@ def get_sloc_config(sloc):
     if not config:
         return jsonify({'error': 'SLOC not found'}), 404
     return jsonify(config)
+
+@app.patch('/api/sloc-config/<sloc>')
+def update_sloc_config(sloc):
+    data = request.json
+    try:
+        SlocConfigService.create_sloc(
+            sloc=sloc,
+            description=data.get('description', ''),
+            wm_enabled=data.get('wm_enabled', False),
+            im_enabled=data.get('im_enabled', False)
+        )
+        return jsonify(SlocConfigService.get_sloc(sloc))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
 
 @app.delete('/api/sloc-config/<sloc>')
 def delete_sloc_config(sloc):

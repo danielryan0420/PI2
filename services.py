@@ -333,6 +333,28 @@ class SlocConfigService:
     def delete_sloc(sloc: str) -> None:
         db.execute("DELETE FROM sloc_config WHERE sloc = ?", (sloc,))
 
+    @staticmethod
+    def get_available_slocs() -> List[Dict]:
+        result = db.fetch_all("""
+            SELECT
+                COALESCE(sl.code, sc.sloc) as sloc,
+                COALESCE(sl.description, sc.description, '') as description,
+                COALESCE(sc.wm_enabled, 0) as wm_enabled,
+                COALESCE(sc.im_enabled, 0) as im_enabled
+            FROM sap_storage_locations sl
+            LEFT JOIN sloc_config sc ON sl.code = sc.sloc
+            UNION
+            SELECT
+                sc.sloc,
+                sc.description,
+                sc.wm_enabled,
+                sc.im_enabled
+            FROM sloc_config sc
+            WHERE sc.sloc NOT IN (SELECT code FROM sap_storage_locations)
+            ORDER BY sloc ASC
+        """)
+        return result
+
 
 class WmBinService:
     @staticmethod

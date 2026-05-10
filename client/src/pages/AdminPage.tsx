@@ -160,30 +160,42 @@ export function AdminPage() {
   }
 
   // ─── SLOC Config tab ──────────────────────────────────────────────────────
-  const [newSloc, setNewSloc] = useState('');
-  const [newSlocDesc, setNewSlocDesc] = useState('');
-  const [newWm, setNewWm] = useState(false);
-  const [newIm, setNewIm] = useState(false);
-  const [savingSloc, setSavingSloc] = useState(false);
+  const [availableSlocs, setAvailableSlocs] = useState<SlocConfig[]>([]);
+  const [togglingSloc, setTogglingSloc] = useState<string | null>(null);
 
-  async function handleSaveSloc() {
-    if (!newSloc.trim()) { toast('SLOC required', 'error'); return; }
-    setSavingSloc(true);
+  useEffect(() => {
+    if (tab === 'config') loadAvailableSlocs();
+  }, [tab]);
+
+  async function loadAvailableSlocs() {
     try {
-      await api.post('/sloc-config', { sloc: newSloc.trim().toUpperCase(), description: newSlocDesc || null, wm_enabled: newWm, im_enabled: newIm }, headers);
-      toast('SLOC saved', 'success');
-      setNewSloc(''); setNewSlocDesc(''); setNewWm(false); setNewIm(false);
-      const configs = await api.get<SlocConfig[]>('/sloc-config');
-      setSlocConfigs(configs);
-    } catch (e) { toast(e instanceof Error ? e.message : 'Failed', 'error'); }
-    finally { setSavingSloc(false); }
+      const data = await api.get<SlocConfig[]>('/sloc-config/available');
+      setAvailableSlocs(data);
+    } catch { /**/ }
+  }
+
+  async function handleToggleSetting(sloc: string, field: 'wm_enabled' | 'im_enabled') {
+    const current = availableSlocs.find(s => s.sloc === sloc);
+    if (!current) return;
+    setTogglingSloc(sloc);
+    try {
+      const newVal = field === 'wm_enabled' ? !current.wm_enabled : !current.im_enabled;
+      const update: any = { description: current.description };
+      update[field] = newVal;
+      if (field === 'wm_enabled') update.im_enabled = current.im_enabled;
+      else update.wm_enabled = current.wm_enabled;
+
+      await api.patch(`/sloc-config/${sloc}`, update, headers);
+      await loadAvailableSlocs();
+      toast(`${sloc} updated`, 'success');
+    } catch { toast('Failed to update', 'error'); }
+    finally { setTogglingSloc(null); }
   }
 
   async function handleDeleteSloc(sloc: string) {
     try {
       await api.delete(`/sloc-config/${sloc}`, headers);
-      const configs = await api.get<SlocConfig[]>('/sloc-config');
-      setSlocConfigs(configs);
+      await loadAvailableSlocs();
       toast(`SLOC ${sloc} removed`, 'success');
     } catch { toast('Failed to remove', 'error'); }
   }
@@ -458,52 +470,43 @@ const tabs: { key: Tab; label: string }[] = [
 
         {/* ─── SLOC CONFIG TAB ─── */}
         {tab === 'config' && (
-          <div className="flex flex-col gap-4 max-w-2xl">
-            <Card>
-              <CardHeader><h3 className="font-semibold text-gray-700">Add / Update SLOC</h3></CardHeader>
-              <CardBody className="flex flex-col gap-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <Input label="SLOC Code" value={newSloc} onChange={(e) => setNewSloc(e.target.value.toUpperCase())} placeholder="e.g. 0001" />
-                  <Input label="Description" value={newSlocDesc} onChange={(e) => setNewSlocDesc(e.target.value)} placeholder="e.g. Main Warehouse" />
-                </div>
-                <div className="flex gap-6">
-                  <label className="flex items-center gap-2 text-sm cursor-pointer">
-                    <input type="checkbox" checked={newWm} onChange={(e) => setNewWm(e.target.checked)} className="w-4 h-4 rounded" />
-                    WM Enabled (requires WM Bin)
-                  </label>
-                  <label className="flex items-center gap-2 text-sm cursor-pointer">
-                    <input type="checkbox" checked={newIm} onChange={(e) => setNewIm(e.target.checked)} className="w-4 h-4 rounded" />
-                    IM Only (requires ZBIN)
-                  </label>
-                </div>
-                <Button onClick={handleSaveSloc} loading={savingSloc}>Save SLOC</Button>
-              </CardBody>
-            </Card>
+          <div className="flex flex-col gap-4 max-w-4xl">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-800">
+              <strong>SLOCs from T300T:</strong> Import from SAP Data tab, then toggle WM/IM settings below
+            </div>
 
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
               <table className="w-full text-sm">
-                <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
+                <thead className="bg-gray-50 text-xs text-gray-500 uppercase font-semibold">
                   <tr>
-                    <th className="px-3 py-3 text-left">SLOC</th>
-                    <th className="px-3 py-3 text-left">Description</th>
-                    <th className="px-3 py-3 text-center">WM</th>
-                    <th className="px-3 py-3 text-center">IM/ZBIN</th>
-                    <th className="px-3 py-3 text-center">Delete</th>
+                    <th className="px-4 py-3 text-left">SLOC</th>
+                    <th className="px-4 py-3 text-left">Description</th>
+                    <th className="px-4 py-3 text-center min-w-[120px]">WM</th>
+                    <th className="px-4 py-3 text-center min-w-[120px]">IM</th>
+                    <th className="px-4 py-3 text-center min-w-[60px]">Delete</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {slocConfigs.map((c) => (
-                    <tr key={c.sloc} className="hover:bg-gray-50">
-                      <td className="px-3 py-2 font-mono font-semibold text-gray-800">{c.sloc}</td>
-                      <td className="px-3 py-2 text-gray-600">{c.description || '—'}</td>
-                      <td className="px-3 py-2 text-center">{c.wm_enabled ? '✓' : ''}</td>
-                      <td className="px-3 py-2 text-center">{c.im_enabled ? '✓' : ''}</td>
-                      <td className="px-3 py-2 text-center">
-                        <Button variant="ghost" size="sm" className="no-min-h !min-h-0 p-1 text-red-400 hover:text-red-600" onClick={() => handleDeleteSloc(c.sloc)}>✕</Button>
+                  {availableSlocs.map((s) => (
+                    <tr key={s.sloc} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 font-mono font-semibold text-gray-800">{s.sloc}</td>
+                      <td className="px-4 py-3 text-gray-600">{s.description || '—'}</td>
+                      <td className="px-4 py-3 text-center">
+                        <button onClick={() => handleToggleSetting(s.sloc, 'wm_enabled')} disabled={togglingSloc === s.sloc} className={`inline-flex items-center justify-center w-10 h-10 rounded-lg border transition-colors ${s.wm_enabled ? 'bg-green-100 border-green-300 text-green-700 hover:bg-green-200' : 'bg-gray-100 border-gray-300 text-gray-400 hover:bg-gray-200'} ${togglingSloc === s.sloc ? 'opacity-50 cursor-wait' : 'cursor-pointer'}`} title={s.wm_enabled ? 'Disable WM' : 'Enable WM'}>
+                          {togglingSloc === s.sloc ? '⟳' : s.wm_enabled ? '✓' : '−'}
+                        </button>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <button onClick={() => handleToggleSetting(s.sloc, 'im_enabled')} disabled={togglingSloc === s.sloc} className={`inline-flex items-center justify-center w-10 h-10 rounded-lg border transition-colors ${s.im_enabled ? 'bg-blue-100 border-blue-300 text-blue-700 hover:bg-blue-200' : 'bg-gray-100 border-gray-300 text-gray-400 hover:bg-gray-200'} ${togglingSloc === s.sloc ? 'opacity-50 cursor-wait' : 'cursor-pointer'}`} title={s.im_enabled ? 'Disable IM' : 'Enable IM'}>
+                          {togglingSloc === s.sloc ? '⟳' : s.im_enabled ? '✓' : '−'}
+                        </button>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <button onClick={() => handleDeleteSloc(s.sloc)} disabled={togglingSloc === s.sloc} className="inline-flex items-center justify-center w-8 h-8 rounded text-red-400 hover:text-red-600 disabled:opacity-50">✕</button>
                       </td>
                     </tr>
                   ))}
-                  {slocConfigs.length === 0 && <tr><td colSpan={5} className="px-3 py-6 text-center text-gray-400">No SLOCs configured yet</td></tr>}
+                  {availableSlocs.length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-400">No SLOCs available. Import T300T data first.</td></tr>}
                 </tbody>
               </table>
             </div>
