@@ -378,7 +378,8 @@ export function AdminPage() {
         {tab === 'data' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {[
-              { key: 'materials', label: 'MARA / MAKT (Materials)', endpoint: '/imports/materials', tableKey: 'sap_materials' },
+              { key: 'mara', label: 'MARA (Material Master)', endpoint: '/imports/mara', tableKey: 'sap_materials' },
+              { key: 'makt', label: 'MAKT (Material Descriptions)', endpoint: '/imports/makt', tableKey: 'sap_materials' },
               { key: 'plant_data', label: 'MARC (Plant Data)', endpoint: '/imports/plant-data', tableKey: 'sap_plant_data' },
               { key: 'valuation', label: 'MBEW (Valuation)', endpoint: '/imports/valuation', tableKey: 'sap_valuation' },
               { key: 'mlgt', label: 'MLGT (Material Ledger GL)', endpoint: '/imports/mlgt', tableKey: 'sap_mlgt' },

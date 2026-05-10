@@ -507,8 +507,19 @@ def parse_csv_upload():
 def get_import_status():
     return jsonify(ImportService.get_import_status())
 
-@app.post('/api/imports/materials')
-def import_materials():
+@app.post('/api/imports/mara')
+def import_mara():
+    rows, err, code = parse_csv_upload()
+    if err:
+        return err, code
+    try:
+        count = ImportService.import_materials(rows)
+        return jsonify({'imported': count}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.post('/api/imports/makt')
+def import_makt():
     rows, err, code = parse_csv_upload()
     if err:
         return err, code
