@@ -126,22 +126,22 @@ export function OfficePage() {
   // Auto-select first unanswered thread when messages load
   useEffect(() => {
     if (tab !== 'messages' || messages.length === 0 || replyTarget !== null) return;
-    const threads = Object.keys(
-      messages.reduce<Record<number, boolean>>((acc, m) => { acc[m.count_id ?? 0] = true; return acc; }, {})
-    ).map(Number);
-    // Prefer unanswered threads first
-    const unanswered = threads.find((k) =>
-      messages.some((m) => (m.count_id ?? 0) === k && m.role === 'counter') &&
-      !messages.some((m) => (m.count_id ?? 0) === k && m.role === 'office')
-    );
-    const first = unanswered ?? threads[0];
-    if (first !== undefined) { setReplyTarget(first); loadThread(first); }
+    const unansweredThreads = messages.filter(t => !t.answered);
+    const firstThread = unansweredThreads[0] ?? messages[0];
+    if (firstThread) {
+      setReplyTarget(firstThread.id);
+      loadThread(firstThread.id);
+    }
   }, [messages, tab]);
 
   useEffect(() => {
     const socket = getSocket();
-    socket.on('message:created', () => { loadMessages(); if (replyTarget !== null) loadThread(replyTarget); });
-    return () => { socket.off('message:created'); };
+    socket.on('thread:created', () => { loadMessages(); });
+    socket.on('message:created', () => { if (replyTarget !== null) loadThread(replyTarget); });
+    return () => {
+      socket.off('thread:created');
+      socket.off('message:created');
+    };
   }, [replyTarget]);
 
   async function handleReply() {

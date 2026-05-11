@@ -21,8 +21,8 @@ export function MessagesPanel() {
     if (!session) return;
     try {
       const data = await api.get<MessageThread[]>(`/sessions/${session.id}/threads`, {
-        'x-username': username,
-        'x-role': role || 'counter',
+        username,
+        role: role || 'counter',
       });
       setThreads(data);
     } catch (e) {
@@ -71,8 +71,8 @@ export function MessagesPanel() {
     setCreating(true);
     try {
       await api.post(`/sessions/${session.id}/threads`, { title: newQuestion }, {
-        'x-username': username,
-        'x-role': role || 'counter',
+        username,
+        role: role || 'counter',
       });
       setNewQuestion('');
       await loadThreads();
@@ -88,8 +88,8 @@ export function MessagesPanel() {
     setSending(true);
     try {
       await api.post(`/threads/${selectedThreadId}/messages`, { body: replyBody }, {
-        'x-username': username,
-        'x-role': role || 'counter',
+        username,
+        role: role || 'counter',
       });
       setReplyBody('');
       await loadMessages(selectedThreadId);
