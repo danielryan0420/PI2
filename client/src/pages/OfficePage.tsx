@@ -10,7 +10,7 @@ import { useToast } from '../context/ToastContext';
 import { api } from '../lib/api';
 import { getSocket, joinSession } from '../lib/socket';
 import { formatDateTime, formatCurrency } from '../lib/utils';
-import type { Count, Message, SlocConfig, User, Role, InventorySession, WmBin, WmBinMaterial } from '../types';
+import type { Count, Message, SlocConfig, User, Role, InventorySession, WmBin, WmBinMaterial, MessageThread } from '../types';
 
 type Tab = 'review' | 'messages' | 'data' | 'export' | 'config' | 'users' | 'wmbins';
 
@@ -99,8 +99,7 @@ export function OfficePage() {
   }
 
   // ─── Messages tab state ───────────────────────────────────────────────────
-  const [messages, setMessages] = useState<Message[]>([]);
-  // replyTarget: null = no thread selected, 0 = general thread, >0 = count_id
+  const [messages, setMessages] = useState<MessageThread[]>([]);
   const [replyTarget, setReplyTarget] = useState<number | null>(null);
   const [replyText, setReplyText] = useState('');
   const [threadMessages, setThreadMessages] = useState<Message[]>([]);
@@ -108,21 +107,15 @@ export function OfficePage() {
   async function loadMessages() {
     if (!session) return;
     try {
-      const data = await api.get<Message[]>(`/sessions/${session.id}/messages`, headers);
+      const data = await api.get<MessageThread[]>(`/sessions/${session.id}/threads`, headers);
       setMessages(data);
     } catch { /**/ }
   }
 
-  async function loadThread(target: number) {
+  async function loadThread(threadId: number) {
     try {
-      if (target === 0) {
-        // General session thread
-        const msgs = await api.get<Message[]>(`/sessions/${session!.id}/messages/general`, headers);
-        setThreadMessages(msgs);
-      } else {
-        const msgs = await api.get<Message[]>(`/counts/${target}/messages`);
-        setThreadMessages(msgs);
-      }
+      const msgs = await api.get<Message[]>(`/threads/${threadId}/messages`);
+      setThreadMessages(msgs);
     } catch { /**/ }
   }
 
@@ -152,13 +145,9 @@ export function OfficePage() {
   }, [replyTarget]);
 
   async function handleReply() {
-    if (replyTarget === null || !replyText.trim() || !session) return;
+    if (replyTarget === null || !replyText.trim()) return;
     try {
-      if (replyTarget === 0) {
-        await api.post(`/sessions/${session.id}/messages`, { sender: username, role, body: replyText }, headers);
-      } else {
-        await api.post(`/counts/${replyTarget}/messages`, { sender: username, role, body: replyText }, headers);
-      }
+      await api.post(`/threads/${replyTarget}/messages`, { body: replyText }, headers);
       setReplyText('');
       loadThread(replyTarget);
     } catch { /**/ }
@@ -494,58 +483,81 @@ export function OfficePage() {
 
         {/* ─── MESSAGES TAB ─── */}
         {tab === 'messages' && (() => {
-          // Build threads: key 0 = general, key N = count_id N
-          const threads = messages.reduce<Record<number, Message[]>>((acc, m) => {
-            const key = m.count_id ?? 0;
-            (acc[key] ??= []).push(m);
-            return acc;
-          }, {});
-          const threadKeys = Object.keys(threads).map(Number);
+          const unansweredThreads = messages.filter(m => !m.answered);
+          const answeredThreads = messages.filter(m => m.answered);
 
           return (
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 h-full">
               {/* Left: thread list */}
-              <div className="lg:col-span-2 flex flex-col gap-2">
+              <div className="lg:col-span-2 flex flex-col gap-4 overflow-y-auto">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-gray-700 text-sm">Conversations</h3>
+                  <h3 className="font-semibold text-gray-700 text-sm">Questions</h3>
                   <button className="no-min-h text-xs text-blue-600 hover:underline" onClick={loadMessages}>↻ Refresh</button>
                 </div>
-                {threadKeys.length === 0 ? (
-                  <div className="text-sm text-gray-400 text-center py-8 border border-dashed border-gray-200 rounded-xl">No messages yet</div>
-                ) : threadKeys.map((key) => {
-                  const msgs = threads[key];
-                  const last = msgs[msgs.length - 1];
-                  const hasOfficeReply = msgs.some((m) => m.role === 'office');
-                  const isSelected = replyTarget === key;
-                  return (
-                    <div
-                      key={key}
-                      onClick={() => { setReplyTarget(key); loadThread(key); }}
-                      className={`cursor-pointer rounded-xl border p-3 transition-colors ${isSelected ? 'border-blue-500 bg-blue-50' : hasOfficeReply ? 'border-gray-200 bg-white hover:border-blue-300' : 'border-amber-200 bg-amber-50 hover:border-amber-400'}`}
-                    >
-                      <div className="flex justify-between items-start mb-1">
-                        <span className={`text-xs font-semibold ${key === 0 ? 'text-blue-600' : 'text-gray-500 font-mono'}`}>
-                          {key === 0 ? 'General Question' : `Count #${key} · ${last.material_number ?? ''}`}
-                        </span>
-                        {!hasOfficeReply && <span className="text-[10px] bg-amber-500 text-white rounded-full px-1.5 py-0.5 font-medium">Needs reply</span>}
-                      </div>
-                      <p className="text-sm text-gray-700 truncate">{last.body}</p>
-                      <span className="text-xs text-gray-400">{last.sender} · {formatDateTime(last.sent_at)}</span>
+
+                {unansweredThreads.length === 0 ? (
+                  <div className="text-sm text-gray-400 text-center py-4 border border-dashed border-gray-200 rounded-xl">No unanswered questions</div>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {unansweredThreads.map((thread) => {
+                      const isSelected = replyTarget === thread.id;
+                      return (
+                        <button
+                          key={thread.id}
+                          onClick={() => { setReplyTarget(thread.id); loadThread(thread.id); }}
+                          className={`text-left rounded-xl border p-3 transition-colors ${isSelected ? 'border-blue-500 bg-blue-50' : 'border-amber-200 bg-amber-50 hover:border-amber-400'}`}
+                        >
+                          <div className="flex justify-between items-start mb-1">
+                            <span className="text-xs font-semibold text-gray-700">{thread.title}</span>
+                            <span className="text-[10px] bg-amber-500 text-white rounded-full px-1.5 py-0.5 font-medium">Needs reply</span>
+                          </div>
+                          <p className="text-sm text-gray-700 truncate">Asked by {thread.created_by}</p>
+                          <span className="text-xs text-gray-400">{formatDateTime(thread.created_at)}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {answeredThreads.length > 0 && (
+                  <>
+                    <hr className="border-gray-200" />
+                    <h3 className="font-semibold text-gray-700 text-sm">Answered</h3>
+                    <div className="flex flex-col gap-2">
+                      {answeredThreads.map((thread) => {
+                        const isSelected = replyTarget === thread.id;
+                        return (
+                          <button
+                            key={thread.id}
+                            onClick={() => { setReplyTarget(thread.id); loadThread(thread.id); }}
+                            className={`text-left rounded-xl border p-3 transition-colors text-sm ${isSelected ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-white hover:border-green-300'}`}
+                          >
+                            <div className="font-semibold text-gray-700 truncate">{thread.title}</div>
+                            <p className="text-xs text-gray-500">by {thread.answered_by}</p>
+                          </button>
+                        );
+                      })}
                     </div>
-                  );
-                })}
+                  </>
+                )}
               </div>
 
               {/* Right: thread + reply */}
-              <div className="lg:col-span-3 bg-white rounded-xl border border-gray-200 p-4 flex flex-col gap-3">
+              <div className="lg:col-span-3 bg-white rounded-xl border border-gray-200 p-4 flex flex-col gap-3 h-full">
                 {replyTarget === null ? (
-                  <div className="flex items-center justify-center h-48 text-sm text-gray-400">Select a conversation to reply</div>
+                  <div className="flex items-center justify-center h-48 text-sm text-gray-400">Select a question to reply</div>
                 ) : (
                   <>
-                    <h3 className="font-semibold text-gray-700 text-sm border-b border-gray-100 pb-2">
-                      {replyTarget === 0 ? 'General Question Thread' : `Count #${replyTarget}${threads[replyTarget]?.[0]?.material_number ? ` — ${threads[replyTarget][0].material_number}` : ''}`}
-                    </h3>
-                    <div className="flex flex-col gap-2 flex-1 overflow-y-auto" style={{ maxHeight: 320 }}>
+                    <div className="border-b border-gray-100 pb-2">
+                      <h3 className="font-semibold text-gray-700 text-sm">{messages.find(m => m.id === replyTarget)?.title}</h3>
+                      <p className="text-xs text-gray-600 mt-1">
+                        Asked by {messages.find(m => m.id === replyTarget)?.created_by} • {formatDateTime(messages.find(m => m.id === replyTarget)?.created_at || '')}
+                        {messages.find(m => m.id === replyTarget)?.answered && (
+                          <span className="ml-2 text-green-600">✓ Answered by {messages.find(m => m.id === replyTarget)?.answered_by}</span>
+                        )}
+                      </p>
+                    </div>
+                    <div className="flex flex-col gap-2 flex-1 overflow-y-auto">
                       {threadMessages.map((m) => (
                         <div key={m.id} className={`flex ${m.role === 'office' ? 'justify-end' : 'justify-start'}`}>
                           <div className={`text-sm rounded-2xl px-4 py-2.5 max-w-[80%] ${m.role === 'office' ? 'bg-purple-600 text-white rounded-br-sm' : 'bg-gray-100 text-gray-800 rounded-bl-sm'}`}>

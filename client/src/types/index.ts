@@ -156,3 +156,27 @@ export interface HighValueItem {
   submission_count: number;
   latest_status: string | null;
 }
+
+export interface MessageThread {
+  id: number;
+  session_id: number;
+  count_id: number | null;
+  title: string;
+  created_by: string;
+  created_by_role: Role;
+  answered: boolean;
+  answered_by: string | null;
+  answered_at: string | null;
+  created_at: string;
+  message_count?: number;
+  unread_count?: number;
+}
+
+export interface Notification {
+  id: number;
+  user_id: number;
+  thread_id: number;
+  type: 'new_question' | 'new_answer' | 'thread_answered';
+  read_at: string | null;
+  created_at: string;
+}
