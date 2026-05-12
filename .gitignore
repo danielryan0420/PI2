@@ -38,3 +38,4 @@ uploads/
 .env
 inventory.db-*
 server.log
+node_modules/
