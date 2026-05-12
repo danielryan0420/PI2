@@ -3,6 +3,9 @@ REM Update Physical Inventory from GitHub
 
 cd /d "%~dp0"
 
+REM If already restarted after git update, skip to build
+if "%1"=="--build" goto build
+
 echo.
 echo ======================================
 echo Pulling Latest Changes from GitHub
@@ -26,6 +29,12 @@ if errorlevel 1 (
     pause
     exit /b 1
 )
+
+REM Relaunch this script fresh from disk so the updated file runs cleanly
+cmd /c "%~f0" --build
+exit /b
+
+:build
 
 echo.
 echo ======================================
