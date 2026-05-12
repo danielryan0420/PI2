@@ -883,9 +883,9 @@ class DashboardService:
             """, (session_id,))
             snapshot_counted = (counted_row['counted'] or 0) if counted_row else 0
 
-        # Unanswered messages from counters
+        # Open (unanswered) question threads
         unread_row = db.fetch_one(
-            "SELECT COUNT(*) as count FROM messages WHERE session_id = ? AND role = 'counter'",
+            "SELECT COUNT(*) as count FROM message_threads WHERE session_id = ? AND answered = 0",
             (session_id,)
         )
         unread_messages = (unread_row['count'] or 0) if unread_row else 0
