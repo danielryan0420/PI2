@@ -9,7 +9,7 @@ echo Pulling Latest Changes from GitHub
 echo ======================================
 echo.
 
-git pull origin claude/typescript-to-python-streamlit-xx0cO
+git pull origin main
 
 if errorlevel 1 (
     echo.
