@@ -16,12 +16,24 @@ const SessionContext = createContext<SessionContextValue | null>(null);
 
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [username, setUsername] = useState(() => localStorage.getItem('inv_username') ?? '');
-  const [role, setRole] = useState<Role | null>(() => (localStorage.getItem('inv_role') as Role) ?? null);
+  const [role, setRole] = useState<Role | null>(() => {
+    const r = localStorage.getItem('inv_role');
+    return (r === 'counter' || r === 'admin') ? r as Role : null;
+  });
   const [session, setSession] = useState<InventorySession | null>(() => {
     const s = localStorage.getItem('inv_session');
     return s ? JSON.parse(s) : null;
   });
   const [slocConfigs, setSlocConfigs] = useState<SlocConfig[]>([]);
+
+  // Fetch SLOCs whenever a session is active (handles page refresh)
+  useEffect(() => {
+    if (!session) return;
+    fetch('/api/sloc-config')
+      .then((r) => r.ok ? r.json() : [])
+      .then((data: SlocConfig[]) => setSlocConfigs(data))
+      .catch(() => {});
+  }, [session?.id]);
 
   function setUser(u: string, r: Role) {
     setUsername(u);

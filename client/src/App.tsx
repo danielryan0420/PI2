@@ -19,21 +19,20 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={
-        role ? <Navigate to={role === 'counter' ? '/count' : '/office'} replace /> : <EntryPage />
+        role ? <Navigate to={role === 'counter' ? '/count' : '/admin'} replace /> : <EntryPage />
       } />
       <Route path="/count" element={
-        <ProtectedRoute allowedRoles={['counter']}>
+        <ProtectedRoute allowedRoles={['counter', 'admin']}>
           <CounterPage />
         </ProtectedRoute>
       } />
-      <Route path="/office" element={
-        <ProtectedRoute allowedRoles={['office', 'admin']}>
+      <Route path="/review" element={
+        <ProtectedRoute allowedRoles={['admin']}>
           <OfficePage />
         </ProtectedRoute>
       } />
-      <Route path="/admin" element={<Navigate to="/office" replace />} />
       <Route path="/dashboard" element={
-        <ProtectedRoute allowedRoles={['office', 'admin']}>
+        <ProtectedRoute allowedRoles={['admin', 'counter']}>
           <DashboardPage />
         </ProtectedRoute>
       } />

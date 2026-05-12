@@ -1,6 +1,6 @@
 import { cn } from '../../lib/utils';
 
-type BadgeVariant = 'pending' | 'verified' | 'flagged' | 'default' | 'variance' | 'not_counted';
+type BadgeVariant = 'pending' | 'verified' | 'flagged' | 'default' | 'variance' | 'not_counted' | 'info' | 'success';
 
 const variants: Record<BadgeVariant, string> = {
   pending: 'bg-blue-100 text-blue-800',
@@ -9,11 +9,13 @@ const variants: Record<BadgeVariant, string> = {
   variance: 'bg-orange-100 text-orange-800',
   not_counted: 'bg-gray-100 text-gray-600',
   default: 'bg-gray-100 text-gray-700',
+  info: 'bg-cyan-100 text-cyan-800',
+  success: 'bg-green-100 text-green-800',
 };
 
 const labels: Partial<Record<BadgeVariant, string>> = {
   not_counted: 'Not Counted',
-  pending: 'Pending',
+  pending: 'Counted',
   verified: 'Verified',
   flagged: 'Flagged',
   variance: 'Variance',

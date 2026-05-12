@@ -5,6 +5,7 @@ export interface User {
   username: string;
   role: Role;
   created_at: string;
+  last_active: string | null;
 }
 
 export interface InventorySession {
@@ -33,6 +34,7 @@ export interface Count {
   wm_bin: string | null;
   zbin: string | null;
   status: 'pending' | 'verified' | 'flagged';
+  validation_warnings: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -45,14 +47,32 @@ export interface Photo {
   uploaded_at: string;
 }
 
+export interface MessageThread {
+  id: number;
+  session_id: number;
+  count_id: number | null;
+  title: string;
+  created_by: string;
+  created_by_role: 'counter' | 'admin';
+  answered: boolean;
+  answered_by: string | null;
+  answered_at: string | null;
+  created_at: string;
+  message_count?: number;
+}
+
 export interface Message {
   id: number;
+  thread_id: number | null;
   count_id: number | null;
   session_id: number;
   sender: string;
-  role: 'counter' | 'office';
+  role: 'counter' | 'admin';
   body: string;
   sent_at: string;
+  reply_to_id: number | null;
+  reply_to_sender: string | null;
+  reply_to_body: string | null;
   // enriched fields from office view
   material_number?: string | null;
   sloc?: string | null;
@@ -153,6 +173,19 @@ export interface HighValueItem {
   material_number: string;
   description: string | null;
   total_value: number | null;
+  total_stock: number | null;
   submission_count: number;
   latest_status: string | null;
+  counted_qty: number | null;
+}
+
+export interface ProblemMaterial {
+  material_number: string;
+  description: string | null;
+  movement_count: number;
+  adj_count: number;
+  transfer_count: number;
+  issue_count: number;
+  last_movement: string | null;
+  movement_types: string;
 }

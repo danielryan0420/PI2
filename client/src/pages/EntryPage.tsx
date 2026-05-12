@@ -13,6 +13,7 @@ export function EntryPage() {
   const navigate = useNavigate();
 
   const [username, setUsername] = useState(savedUsername);
+  const [password, setPassword] = useState('');
   const [sessions, setSessions] = useState<InventorySession[]>([]);
   const [selectedSession, setSelectedSession] = useState<InventorySession | null>(null);
   const [loading, setLoading] = useState(false);
@@ -21,7 +22,7 @@ export function EntryPage() {
   // If already logged in, redirect
   useEffect(() => {
     if (role) {
-      navigate(role === 'counter' ? '/count' : role === 'admin' ? '/admin' : '/office');
+      navigate(role === 'counter' ? '/count' : '/admin');
     }
   }, [role, navigate]);
 
@@ -36,23 +37,25 @@ export function EntryPage() {
       .finally(() => setLoadingSessions(false));
   }, []);
 
-  async function handleEnter() {
+  async function handleLogin() {
     if (!username.trim()) { toast('Please enter your username', 'error'); return; }
     if (!selectedSession) { toast('Please select an inventory session', 'error'); return; }
 
     setLoading(true);
     try {
-      const user = await api.get<User>(`/users/lookup?username=${encodeURIComponent(username.trim())}`);
+      const user = await api.post<User>('/login', { username: username.trim(), password });
       const configs = await api.get<SlocConfig[]>('/sloc-config');
 
       setUser(username.trim(), user.role);
       setSession(selectedSession);
       setSlocConfigs(configs);
 
-      navigate(user.role === 'counter' ? '/count' : user.role === 'admin' ? '/admin' : '/office');
+      navigate(user.role === 'counter' ? '/count' : '/admin');
     } catch (e) {
-      if (e instanceof Error && e.message.includes('not found')) {
-        toast('Username not recognized. Contact your supervisor to be added.', 'error');
+      if (e instanceof Error && e.message.includes('401')) {
+        toast('Invalid username or password', 'error');
+      } else if (e instanceof Error && e.message.includes('not found')) {
+        toast('Username not found', 'error');
       } else {
         toast('Failed to sign in. Check server connection.', 'error');
       }
@@ -70,7 +73,7 @@ export function EntryPage() {
             <span className="text-blue-600 text-2xl font-bold">PI</span>
           </div>
           <h1 className="text-2xl font-bold text-white">Physical Inventory</h1>
-          <p className="text-blue-200 text-sm mt-1">Enter your username to begin</p>
+          <p className="text-blue-200 text-sm mt-1">Sign in to begin</p>
         </div>
 
         {/* Card */}
@@ -79,10 +82,19 @@ export function EntryPage() {
             label="Username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleEnter()}
             placeholder="Your username"
             autoFocus
             autoComplete="username"
+          />
+
+          <Input
+            label="Password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
+            placeholder="Your password"
+            autoComplete="current-password"
           />
 
           {/* Session selector */}
@@ -113,8 +125,8 @@ export function EntryPage() {
             )}
           </div>
 
-          <Button onClick={handleEnter} loading={loading} size="lg" className="w-full mt-1">
-            Enter
+          <Button onClick={handleLogin} loading={loading} size="lg" className="w-full mt-1">
+            Sign In
           </Button>
         </div>
       </div>

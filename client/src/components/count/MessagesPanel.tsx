@@ -1,193 +1,228 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSession } from '../../context/SessionContext';
 import { api } from '../../lib/api';
-import { getSocket } from '../../lib/socket';
 import { formatDateTime } from '../../lib/utils';
-import type { Message } from '../../types';
+import { MessageBubble } from './MessageBubble';
+import type { Message, MessageThread } from '../../types';
 
 export function MessagesPanel() {
-  const { username, session } = useSession();
-  const [allMessages, setAllMessages] = useState<Message[]>([]);
-  const [selectedThread, setSelectedThread] = useState<number | null>(null); // null=none, 0=general, N=count_id
+  const { username, session, role } = useSession();
+  const [threads, setThreads] = useState<MessageThread[]>([]);
+  const [selectedThreadId, setSelectedThreadId] = useState<number | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [replyBody, setReplyBody] = useState('');
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [newQuestion, setNewQuestion] = useState('');
   const [sending, setSending] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [loading, setLoading] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  async function loadMessages() {
+  const headers = { username: username || '', role: role || 'counter' };
+
+  async function loadThreads() {
     if (!session) return;
     try {
-      const data = await api.get<Message[]>(`/sessions/${session.id}/messages/mine`, { username });
-      setAllMessages(data);
+      const data = await api.get<MessageThread[]>(`/sessions/${session.id}/threads`, headers);
+      setThreads(data);
     } catch { /**/ }
     finally { setLoading(false); }
   }
 
+  async function loadMessages(threadId: number) {
+    try {
+      const data = await api.get<Message[]>(`/threads/${threadId}/messages`);
+      setMessages(data);
+    } catch { /**/ }
+  }
+
   useEffect(() => {
     if (!session) return;
-    loadMessages();
+    loadThreads();
+    pollRef.current = setInterval(() => {
+      loadThreads();
+      if (selectedThreadId) loadMessages(selectedThreadId);
+    }, 8000);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [session?.id]);
 
-    const socket = getSocket();
-    socket.on('message:created', (msg: Message) => {
-      // Add to our list if it's general or on one of our counts
-      setAllMessages((prev) => {
-        const isGeneral = msg.count_id === null;
-        const isOurCount = prev.some((m) => m.count_id === msg.count_id);
-        if (isGeneral || isOurCount) {
-          if (prev.find((m) => m.id === msg.id)) return prev;
-          return [...prev, msg];
-        }
-        return prev;
-      });
-    });
-    return () => { socket.off('message:created'); };
-  }, [session?.id, username]);
+  useEffect(() => {
+    if (selectedThreadId) loadMessages(selectedThreadId);
+  }, [selectedThreadId]);
 
-  // Auto-scroll when selected thread messages change
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [selectedThread, allMessages]);
+  }, [messages]);
 
-  // Build thread map: key 0 = general, key N = count_id
-  const threadMap = allMessages.reduce<Record<number, Message[]>>((acc, m) => {
-    const key = m.count_id ?? 0;
-    (acc[key] ??= []).push(m);
-    return acc;
-  }, {});
+  function scrollToMessage(msgId: number) {
+    const el = document.querySelector(`[data-msg-id="${msgId}"]`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('ring-2', 'ring-blue-400', 'ring-offset-1', 'rounded-2xl');
+      setTimeout(() => el.classList.remove('ring-2', 'ring-blue-400', 'ring-offset-1', 'rounded-2xl'), 1500);
+    }
+  }
 
-  // Add a general thread slot even if empty so counter can always send a general message
-  if (!threadMap[0]) threadMap[0] = [];
-
-  const threadKeys = [0, ...Object.keys(threadMap).map(Number).filter((k) => k !== 0)];
-
-  const threadMessages = selectedThread !== null ? (threadMap[selectedThread] ?? []) : [];
+  async function handleCreateThread() {
+    if (!newQuestion.trim() || !session) return;
+    setCreating(true);
+    try {
+      await api.post(`/sessions/${session.id}/threads`, { title: newQuestion }, headers);
+      setNewQuestion('');
+      await loadThreads();
+    } catch { /**/ }
+    finally { setCreating(false); }
+  }
 
   async function handleSend() {
-    if (!replyBody.trim() || !session || selectedThread === null) return;
+    if (!replyBody.trim() || selectedThreadId === null) return;
     setSending(true);
     try {
-      if (selectedThread === 0) {
-        await api.post<Message>(`/sessions/${session.id}/messages`, {
-          sender: username,
-          role: 'counter',
-          body: replyBody.trim(),
-        }, { username });
-      } else {
-        await api.post<Message>(`/counts/${selectedThread}/messages`, {
-          sender: username,
-          role: 'counter',
-          body: replyBody.trim(),
-        }, { username });
-      }
+      await api.post(`/threads/${selectedThreadId}/messages`, {
+        body: replyBody,
+        reply_to_id: replyingTo?.id ?? null,
+      }, headers);
       setReplyBody('');
+      setReplyingTo(null);
+      await loadMessages(selectedThreadId);
+      await loadThreads();
     } catch { /**/ }
     finally { setSending(false); }
   }
 
-  function threadLabel(key: number) {
-    if (key === 0) return 'General';
-    const msgs = threadMap[key] ?? [];
-    const mat = msgs[0]?.material_number;
-    return `Count #${key}${mat ? ` · ${mat}` : ''}`;
-  }
-
-  function hasOfficeReply(key: number) {
-    return (threadMap[key] ?? []).some((m) => m.role === 'office');
-  }
+  const unansweredThreads = threads.filter(t => !t.answered);
+  const answeredThreads = threads.filter(t => t.answered);
+  const selectedThread = threads.find(t => t.id === selectedThreadId);
 
   return (
-    <div className="flex flex-col gap-3 h-full">
-      <div className="flex items-center gap-2">
-        <h2 className="text-base font-semibold text-gray-800">Messages</h2>
-        <span className="text-xs text-gray-400">Questions & office replies</span>
-      </div>
+    <div className="flex h-full" style={{ minHeight: 0 }}>
 
-      {loading ? (
-        <div className="text-sm text-gray-400 text-center py-8">Loading…</div>
-      ) : (
-        <div className="flex flex-col gap-4">
-          {/* Thread selector */}
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            {threadKeys.map((key) => {
-              const unanswered = (threadMap[key] ?? []).length > 0 && !hasOfficeReply(key) && key !== 0;
-              const isSelected = selectedThread === key;
-              return (
+      {/* ── LEFT: Thread sidebar ── */}
+      <div className="w-56 flex-shrink-0 border-r border-gray-200 flex flex-col overflow-hidden">
+        <div className="px-3 py-3 border-b border-gray-100">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Threads</p>
+        </div>
+
+        <div className="flex-1 overflow-y-auto py-2">
+          {loading && <p className="text-xs text-gray-400 text-center py-6">Loading…</p>}
+
+          {!loading && threads.length === 0 && (
+            <p className="text-xs text-gray-400 text-center py-6 px-3">No threads yet — ask a question below</p>
+          )}
+
+          {unansweredThreads.length > 0 && (
+            <div className="mb-3">
+              <p className="px-3 py-1 text-[10px] font-bold text-amber-600 uppercase tracking-wider">Waiting for reply</p>
+              {unansweredThreads.map(t => (
                 <button
-                  key={key}
-                  onClick={() => setSelectedThread(key)}
-                  className={`no-min-h shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                    isSelected
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : unanswered
-                      ? 'bg-amber-50 text-amber-700 border-amber-300 hover:border-amber-500'
-                      : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'
+                  key={t.id}
+                  onClick={() => setSelectedThreadId(t.id)}
+                  className={`w-full px-3 py-2 text-left transition ${
+                    selectedThreadId === t.id ? 'bg-blue-50 border-r-2 border-blue-500' : 'hover:bg-gray-50'
                   }`}
                 >
-                  {threadLabel(key)}
-                  {unanswered && !isSelected && (
-                    <span className="ml-1 w-2 h-2 rounded-full bg-amber-500 inline-block" />
-                  )}
-                  {hasOfficeReply(key) && !isSelected && (
-                    <span className="ml-1 text-green-500">✓</span>
-                  )}
+                  <p className="text-sm font-medium text-gray-800 truncate">{t.title}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{t.message_count ?? 0} msg{(t.message_count ?? 0) !== 1 ? 's' : ''}</p>
                 </button>
-              );
-            })}
-          </div>
-
-          {/* Thread body */}
-          {selectedThread === null ? (
-            <div className="text-sm text-gray-400 text-center py-10 border border-dashed border-gray-200 rounded-xl">
-              Select a thread above, or tap <strong>General</strong> to ask the office a question
+              ))}
             </div>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {/* Messages */}
-              <div
-                className="flex flex-col gap-2 overflow-y-auto"
-                style={{ maxHeight: 320 }}
-              >
-                {threadMessages.length === 0 ? (
-                  <div className="text-sm text-gray-400 text-center py-8 border border-dashed border-gray-200 rounded-xl">
-                    No messages yet — type your question below
-                  </div>
-                ) : (
-                  threadMessages.map((m) => (
-                    <div
-                      key={m.id}
-                      className={`flex ${m.sender.toLowerCase() === username.toLowerCase() ? 'justify-end' : 'justify-start'}`}
-                    >
-                      <div
-                        className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm ${
-                          m.sender.toLowerCase() === username.toLowerCase()
-                            ? 'bg-blue-600 text-white rounded-br-sm'
-                            : 'bg-gray-100 text-gray-800 rounded-bl-sm'
-                        }`}
-                      >
-                        {m.sender.toLowerCase() !== username.toLowerCase() && (
-                          <div className="text-xs font-medium text-gray-500 mb-1">{m.sender}</div>
-                        )}
-                        <div>{m.body}</div>
-                        <div className={`text-xs mt-1 ${m.sender.toLowerCase() === username.toLowerCase() ? 'text-blue-200' : 'text-gray-400'}`}>
-                          {formatDateTime(m.sent_at)}
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-                <div ref={bottomRef} />
-              </div>
+          )}
 
-              {/* Reply input */}
-              <div className="flex gap-2">
+          {answeredThreads.length > 0 && (
+            <div>
+              <p className="px-3 py-1 text-[10px] font-bold text-green-600 uppercase tracking-wider">Answered</p>
+              {answeredThreads.map(t => (
+                <button
+                  key={t.id}
+                  onClick={() => setSelectedThreadId(t.id)}
+                  className={`w-full px-3 py-2 text-left transition ${
+                    selectedThreadId === t.id ? 'bg-green-50 border-r-2 border-green-500' : 'hover:bg-gray-50'
+                  }`}
+                >
+                  <p className="text-sm text-gray-700 truncate">{t.title}</p>
+                  <p className="text-xs text-green-600 mt-0.5">✓ {t.answered_by}</p>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* New question at bottom of sidebar */}
+        <div className="p-3 border-t border-gray-200 bg-gray-50 flex flex-col gap-2">
+          <p className="text-xs font-semibold text-gray-600">New question</p>
+          <textarea
+            rows={2}
+            value={newQuestion}
+            onChange={e => setNewQuestion(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleCreateThread(); } }}
+            placeholder="Type your question…"
+            className="w-full resize-none border border-gray-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <button
+            onClick={handleCreateThread}
+            disabled={!newQuestion.trim() || creating}
+            className="self-end bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white font-medium px-3 py-1 rounded text-xs transition-colors"
+          >
+            {creating ? '…' : 'Ask'}
+          </button>
+        </div>
+      </div>
+
+      {/* ── RIGHT: Thread view ── */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {!selectedThread ? (
+          <div className="flex-1 flex items-center justify-center text-sm text-gray-400">
+            Select a thread to view messages
+          </div>
+        ) : (
+          <>
+            <div className="px-4 py-3 border-b border-gray-200 bg-white flex-shrink-0">
+              <h3 className="font-semibold text-gray-800 text-sm">{selectedThread.title}</h3>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {selectedThread.created_by} · {formatDateTime(selectedThread.created_at)}
+                {selectedThread.answered && (
+                  <span className="ml-2 text-green-600 font-medium">✓ Answered by {selectedThread.answered_by}</span>
+                )}
+              </p>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
+              {messages.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-8">No messages yet — type below to start</p>
+              ) : (
+                messages.map(m => (
+                  <MessageBubble
+                    key={m.id}
+                    message={m}
+                    isOwn={m.sender.toLowerCase() === (username || '').toLowerCase()}
+                    onReply={msg => { setReplyingTo(msg); inputRef.current?.focus(); }}
+                    onScrollToMessage={scrollToMessage}
+                  />
+                ))
+              )}
+              <div ref={bottomRef} />
+            </div>
+
+            <div className="flex-shrink-0 border-t border-gray-200 bg-white">
+              {replyingTo && (
+                <div className="flex items-start gap-2 px-4 pt-3 pb-1">
+                  <div className="flex-1 border-l-4 border-blue-400 bg-blue-50 rounded px-3 py-1.5 min-w-0">
+                    <p className="text-xs font-semibold text-blue-700">{replyingTo.sender}</p>
+                    <p className="text-xs text-blue-600 truncate">{replyingTo.body}</p>
+                  </div>
+                  <button onClick={() => setReplyingTo(null)} className="text-gray-400 hover:text-gray-600 text-lg leading-none mt-0.5">×</button>
+                </div>
+              )}
+              <div className="flex gap-2 px-4 py-3">
                 <textarea
+                  ref={inputRef}
                   rows={2}
                   value={replyBody}
-                  onChange={(e) => setReplyBody(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
-                  }}
-                  placeholder={selectedThread === 0 ? 'Ask the office a question… (Enter to send)' : 'Reply to this thread… (Enter to send)'}
+                  onChange={e => setReplyBody(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+                  placeholder={replyingTo ? `Replying to ${replyingTo.sender}…` : 'Type a message… (Enter to send)'}
                   className="flex-1 resize-none border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <button
@@ -199,9 +234,9 @@ export function MessagesPanel() {
                 </button>
               </div>
             </div>
-          )}
-        </div>
-      )}
+          </>
+        )}
+      </div>
     </div>
   );
 }

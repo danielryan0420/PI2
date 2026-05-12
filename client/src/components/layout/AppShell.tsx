@@ -5,7 +5,6 @@ import { cn } from '../../lib/utils';
 
 const roleColors: Record<string, string> = {
   counter: 'bg-blue-100 text-blue-800',
-  office: 'bg-purple-100 text-purple-800',
   admin: 'bg-red-100 text-red-800',
 };
 
@@ -16,9 +15,9 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { label: 'Count', path: '/count', roles: ['counter'] },
-  { label: 'Review', path: '/office', roles: ['office', 'admin'] },
-  { label: 'Dashboard', path: '/dashboard', roles: ['office', 'admin'] },
+  { label: 'Count', path: '/count', roles: ['counter', 'admin'] },
+  { label: 'Review', path: '/review', roles: ['admin'] },
+  { label: 'Dashboard', path: '/dashboard', roles: ['counter', 'admin'] },
   { label: 'Admin', path: '/admin', roles: ['admin'] },
 ];
 

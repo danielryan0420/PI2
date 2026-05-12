@@ -5,7 +5,6 @@ import { CountCard } from '../components/count/CountCard';
 import { MessagesPanel } from '../components/count/MessagesPanel';
 import { useSession } from '../context/SessionContext';
 import { api } from '../lib/api';
-import { getSocket, joinSession } from '../lib/socket';
 import type { Count, Message } from '../types';
 
 export function CounterPage() {
@@ -23,34 +22,6 @@ export function CounterPage() {
       .then(setCounts)
       .catch(() => {})
       .finally(() => setLoading(false));
-
-    joinSession(session.id);
-    const socket = getSocket();
-
-    socket.on('count:created', (count: Count) => {
-      if (count.username.toLowerCase() === username.toLowerCase()) {
-        setCounts((prev) => [count, ...prev]);
-      }
-    });
-    socket.on('count:verified', ({ countId }: { countId: string }) => {
-      setCounts((prev) => prev.map((c) => c.id === Number(countId) ? { ...c, status: 'verified' } : c));
-    });
-    socket.on('count:flagged', ({ countId }: { countId: string }) => {
-      setCounts((prev) => prev.map((c) => c.id === Number(countId) ? { ...c, status: 'flagged' } : c));
-    });
-    socket.on('message:created', (msg: Message) => {
-      // Badge the Messages tab when office replies and counter is on the Count tab
-      if (msg.role === 'office' && tab === 'count') {
-        setUnreadReplies((n) => n + 1);
-      }
-    });
-
-    return () => {
-      socket.off('count:created');
-      socket.off('count:verified');
-      socket.off('count:flagged');
-      socket.off('message:created');
-    };
   }, [session?.id, username]);
 
   function handleSubmitted(count: Count) {
@@ -122,7 +93,7 @@ export function CounterPage() {
               <div className="grid grid-cols-3 gap-2">
                 <div className="bg-blue-50 rounded-xl p-3 text-center">
                   <div className="text-xl font-bold text-blue-700">{pending}</div>
-                  <div className="text-xs text-blue-500">Pending</div>
+                  <div className="text-xs text-blue-500">Counted</div>
                 </div>
                 <div className="bg-green-50 rounded-xl p-3 text-center">
                   <div className="text-xl font-bold text-green-700">{verified}</div>

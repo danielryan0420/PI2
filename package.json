@@ -2,16 +2,12 @@
   "name": "physical-inventory",
   "version": "1.0.0",
   "private": true,
-  "workspaces": [
-    "server",
-    "client"
-  ],
+  "description": "Physical Inventory Management System - Python Backend + React Frontend",
   "scripts": {
-    "dev": "concurrently -n server,client -c cyan,green \"npm run dev --workspace=server\" \"npm run dev --workspace=client\"",
-    "build": "npm run build --workspace=server && npm run build --workspace=client",
-    "start": "npm run start --workspace=server"
-  },
-  "devDependencies": {
-    "concurrently": "^8.2.2"
+    "install-all": "npm install && cd client && npm install && cd ..",
+    "dev": "npm run dev --workspace=client -- &",
+    "build": "cd client && npm run build && cd ..",
+    "start": "python3 server.py",
+    "preview": "cd client && npm run preview && cd .."
   }
 }

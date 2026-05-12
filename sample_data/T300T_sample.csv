@@ -1,0 +1,33 @@
+LGORT,WERKS,LGOBE,LOTYP
+A01,1000,High Bay Storage Zone A-01,100
+A02,1000,Rack Storage Zone A-02,100
+A03,1000,Pallet Rack Zone A-03,100
+B01,1000,Bulk Storage Zone B-01,100
+B02,1000,Receiving Area B-02,100
+C01,1000,Chemical Storage Zone C-01,200
+C02,1000,Liquids Area C-02,200
+C03,1000,Hazmat Zone C-03,200
+A01,2000,Main Warehouse A-01,100
+A02,2000,Secondary Storage A-02,200
+A03,2000,Overflow Area A-03,100
+B01,2000,Production Feed B-01,100
+B02,2000,Quality Hold B-02,200
+C01,2000,Materials Area C-01,100
+C02,2000,Components Zone C-02,100
+C03,2000,Finished Goods C-03,200
+A01,3000,Warehouse A Main,100
+A02,3000,Warehouse A Secondary,200
+A03,3000,Warehouse A Overflow,100
+B01,3000,Warehouse B Main,100
+B02,3000,Warehouse B Secondary,200
+C01,3000,Warehouse C Main,100
+C02,3000,Warehouse C Secondary,100
+C03,3000,Warehouse C Overflow,200
+A01,4000,Plant Storage A-01,100
+A02,4000,Plant Storage A-02,200
+A03,4000,Plant Storage A-03,100
+B01,4000,Plant Storage B-01,100
+B02,4000,Plant Storage B-02,200
+C01,4000,Plant Storage C-01,100
+C02,4000,Plant Storage C-02,100
+C03,4000,Plant Storage C-03,100
