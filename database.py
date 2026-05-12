@@ -349,6 +349,31 @@ CREATE INDEX IF NOT EXISTS idx_lgplo_material ON sap_lgplo(material_number);
 CREATE INDEX IF NOT EXISTS idx_lgplo_storage_type ON sap_lgplo(storage_type);
 CREATE INDEX IF NOT EXISTS idx_lgplo_fixed_bin ON sap_lgplo(fixed_bin);
 """),
+    ("013_message_threads.sql", """
+-- One thread per question; messages link to a thread instead of directly to a count
+CREATE TABLE IF NOT EXISTS message_threads (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id      INTEGER NOT NULL REFERENCES inventory_sessions(id) ON DELETE CASCADE,
+    count_id        INTEGER REFERENCES counts(id) ON DELETE SET NULL,
+    title           TEXT NOT NULL,
+    created_by      TEXT NOT NULL,
+    created_by_role TEXT NOT NULL CHECK(created_by_role IN ('counter','admin')),
+    answered        INTEGER NOT NULL DEFAULT 0,
+    answered_by     TEXT,
+    answered_at     TEXT,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_message_threads_session ON message_threads(session_id);
+CREATE INDEX IF NOT EXISTS idx_message_threads_answered ON message_threads(answered);
+
+ALTER TABLE messages ADD COLUMN thread_id INTEGER REFERENCES message_threads(id) ON DELETE CASCADE;
+CREATE INDEX IF NOT EXISTS idx_messages_thread ON messages(thread_id);
+"""),
+    ("014_message_reply_to.sql", """
+ALTER TABLE messages ADD COLUMN reply_to_id INTEGER REFERENCES messages(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_messages_reply_to ON messages(reply_to_id);
+"""),
 ]
 
 class Database:

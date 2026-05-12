@@ -5,11 +5,12 @@ import { Button } from '../components/ui/Button';
 import { Input, Textarea } from '../components/ui/Input';
 import { Dialog, ConfirmDialog } from '../components/ui/Dialog';
 import { StatusBadge } from '../components/ui/Badge';
+import { MessageBubble } from '../components/count/MessageBubble';
 import { useSession } from '../context/SessionContext';
 import { useToast } from '../context/ToastContext';
 import { api } from '../lib/api';
 import { formatDateTime } from '../lib/utils';
-import type { Count, Message } from '../types';
+import type { Count, Message, MessageThread } from '../types';
 
 type Tab = 'review' | 'messages';
 
@@ -98,76 +99,77 @@ export function OfficePage() {
   }
 
   // ─── Messages tab state ───────────────────────────────────────────────────
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [threads, setThreads] = useState<MessageThread[]>([]);
   const [replyTarget, setReplyTarget] = useState<number | null>(null);
   const [replyText, setReplyText] = useState('');
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [threadMessages, setThreadMessages] = useState<Message[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<Message | null>(null);
   const [deleting, setDeleting] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const threadBottomRef = useRef<HTMLDivElement>(null);
+  const officeInputRef = useRef<HTMLInputElement>(null);
 
-  async function loadMessages() {
+  async function loadThreads() {
     if (!session) return;
     try {
-      const data = await api.get<Message[]>(`/sessions/${session.id}/messages`, headers);
-      setMessages(data);
+      const data = await api.get<MessageThread[]>(`/sessions/${session.id}/threads`, headers);
+      setThreads(data);
     } catch { /**/ }
   }
 
-  async function loadThread(target: number) {
+  async function loadThread(threadId: number) {
     try {
-      if (target === 0) {
-        const msgs = await api.get<Message[]>(`/sessions/${session!.id}/messages/general`, headers);
-        setThreadMessages(msgs);
-      } else {
-        const msgs = await api.get<Message[]>(`/counts/${target}/messages`);
-        setThreadMessages(msgs);
-      }
+      const msgs = await api.get<Message[]>(`/threads/${threadId}/messages`);
+      setThreadMessages(msgs);
     } catch { /**/ }
   }
 
   useEffect(() => {
     if (tab === 'messages') {
-      loadMessages();
-      pollRef.current = setInterval(loadMessages, 6000);
+      loadThreads();
+      pollRef.current = setInterval(() => {
+        loadThreads();
+        if (replyTarget !== null) loadThread(replyTarget);
+      }, 6000);
     }
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [tab, session?.id]);
 
-  // Auto-select first unanswered thread when messages load
   useEffect(() => {
-    if (tab !== 'messages' || messages.length === 0 || replyTarget !== null) return;
-    const threads = Object.keys(
-      messages.reduce<Record<number, boolean>>((acc, m) => { acc[m.count_id ?? 0] = true; return acc; }, {})
-    ).map(Number);
-    const unanswered = threads.find((k) =>
-      messages.some((m) => (m.count_id ?? 0) === k && m.role === 'counter') &&
-      !messages.some((m) => (m.count_id ?? 0) === k && m.role === 'admin')
-    );
-    const first = unanswered ?? threads[0];
-    if (first !== undefined) { setReplyTarget(first); loadThread(first); }
-  }, [messages, tab]);
+    if (tab !== 'messages' || threads.length === 0 || replyTarget !== null) return;
+    const first = threads.find(t => !t.answered) ?? threads[0];
+    if (first) { setReplyTarget(first.id); loadThread(first.id); }
+  }, [threads, tab]);
 
-  // Refresh thread when replyTarget changes
   useEffect(() => {
-    if (tab === 'messages' && replyTarget !== null) {
-      loadThread(replyTarget);
-    }
+    if (tab === 'messages' && replyTarget !== null) loadThread(replyTarget);
   }, [replyTarget]);
 
+  useEffect(() => {
+    threadBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [threadMessages]);
+
+  function scrollToMessage(msgId: number) {
+    const el = document.querySelector(`[data-msg-id="${msgId}"]`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('ring-2', 'ring-blue-400', 'ring-offset-1', 'rounded-2xl');
+      setTimeout(() => el.classList.remove('ring-2', 'ring-blue-400', 'ring-offset-1', 'rounded-2xl'), 1500);
+    }
+  }
+
   async function handleReply() {
-    if (replyTarget === null || !replyText.trim() || !session) return;
+    if (replyTarget === null || !replyText.trim()) return;
     try {
-      if (replyTarget === 0) {
-        await api.post(`/sessions/${session.id}/messages`, { sender: username, role, body: replyText }, headers);
-      } else {
-        await api.post(`/counts/${replyTarget}/messages`, { sender: username, role, body: replyText }, headers);
-      }
+      await api.post(`/threads/${replyTarget}/messages`, {
+        body: replyText,
+        reply_to_id: replyingTo?.id ?? null,
+      }, headers);
       setReplyText('');
+      setReplyingTo(null);
       loadThread(replyTarget);
-      loadMessages();
+      loadThreads();
     } catch { /**/ }
   }
 
@@ -177,7 +179,6 @@ export function OfficePage() {
     try {
       await api.delete(`/messages/${deleteTarget.id}`);
       setThreadMessages((prev) => prev.filter((m) => m.id !== deleteTarget.id));
-      loadMessages();
       setDeleteTarget(null);
     } catch { toast('Failed to delete message', 'error'); }
     finally { setDeleting(false); }
@@ -280,110 +281,117 @@ export function OfficePage() {
 
         {/* ─── MESSAGES TAB ─── */}
         {tab === 'messages' && (() => {
-          const threads = messages.reduce<Record<number, Message[]>>((acc, m) => {
-            const key = m.count_id ?? 0;
-            (acc[key] ??= []).push(m);
-            return acc;
-          }, {});
-          const threadKeys = Object.keys(threads).map(Number);
+          const unansweredThreads = threads.filter(t => !t.answered);
+          const answeredThreads = threads.filter(t => t.answered);
+          const selectedThread = threads.find(t => t.id === replyTarget);
 
           return (
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4" style={{ minHeight: 520 }}>
               {/* Left: thread list */}
-              <div className="lg:col-span-2 flex flex-col gap-2">
+              <div className="lg:col-span-2 flex flex-col gap-3 overflow-y-auto">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-gray-700 text-sm">Conversations</h3>
-                  <span className="text-xs text-gray-400">Auto-refreshes every 6s</span>
+                  <h3 className="font-semibold text-gray-700 text-sm">Questions</h3>
+                  <span className="text-xs text-gray-400">Refreshes every 6s</span>
                 </div>
-                {threadKeys.length === 0 ? (
-                  <div className="text-sm text-gray-400 text-center py-8 border border-dashed border-gray-200 rounded-xl">No messages yet</div>
-                ) : threadKeys.map((key) => {
-                  const msgs = threads[key];
-                  const last = msgs[msgs.length - 1];
-                  const hasAdminReply = msgs.some((m) => m.role === 'admin');
-                  const isSelected = replyTarget === key;
-                  return (
-                    <div
-                      key={key}
-                      onClick={() => setReplyTarget(key)}
-                      className={`cursor-pointer rounded-xl border p-3 transition-colors ${isSelected ? 'border-blue-500 bg-blue-50' : hasAdminReply ? 'border-gray-200 bg-white hover:border-blue-300' : 'border-amber-200 bg-amber-50 hover:border-amber-400'}`}
-                    >
-                      <div className="flex justify-between items-start mb-1">
-                        <span className={`text-xs font-semibold ${key === 0 ? 'text-blue-600' : 'text-gray-500 font-mono'}`}>
-                          {key === 0 ? 'General' : `Count #${key}${last.material_number ? ` · ${last.material_number}` : ''}`}
-                        </span>
-                        {!hasAdminReply && <span className="text-[10px] bg-amber-500 text-white rounded-full px-1.5 py-0.5 font-medium">Needs reply</span>}
-                      </div>
-                      <p className="text-sm text-gray-700 truncate">{last.body}</p>
-                      <span className={`text-xs ${last.sender === 'SYSTEM' ? 'text-amber-600 font-medium' : 'text-gray-400'}`}>
-                        {last.sender === 'SYSTEM' ? '⚠️ SYSTEM alert' : last.sender} · {formatDateTime(last.sent_at)}
-                      </span>
-                    </div>
-                  );
-                })}
+
+                {unansweredThreads.length === 0 && answeredThreads.length === 0 && (
+                  <div className="text-sm text-gray-400 text-center py-8 border border-dashed border-gray-200 rounded-xl">No questions yet</div>
+                )}
+
+                {unansweredThreads.length > 0 && (
+                  <div className="flex flex-col gap-2">
+                    <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Needs reply</p>
+                    {unansweredThreads.map(t => (
+                      <button
+                        key={t.id}
+                        onClick={() => setReplyTarget(t.id)}
+                        className={`text-left rounded-xl border p-3 transition-colors ${replyTarget === t.id ? 'border-blue-500 bg-blue-50' : 'border-amber-200 bg-amber-50 hover:border-amber-400'}`}
+                      >
+                        <div className="flex justify-between items-start mb-1">
+                          <span className="text-xs font-semibold text-gray-800 truncate pr-2">{t.title}</span>
+                          <span className="text-[10px] bg-amber-500 text-white rounded-full px-1.5 py-0.5 font-medium shrink-0">Needs reply</span>
+                        </div>
+                        <span className="text-xs text-gray-500">{t.created_by} · {formatDateTime(t.created_at)}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {answeredThreads.length > 0 && (
+                  <div className="flex flex-col gap-2">
+                    <p className="text-[10px] font-bold text-green-600 uppercase tracking-wider">Answered</p>
+                    {answeredThreads.map(t => (
+                      <button
+                        key={t.id}
+                        onClick={() => setReplyTarget(t.id)}
+                        className={`text-left rounded-xl border p-3 transition-colors text-sm ${replyTarget === t.id ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-white hover:border-green-300'}`}
+                      >
+                        <div className="font-medium text-gray-800 truncate">{t.title}</div>
+                        <div className="text-xs text-green-600 mt-0.5">✓ {t.answered_by}</div>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Right: thread + reply */}
-              <div className="lg:col-span-3 bg-white rounded-xl border border-gray-200 p-4 flex flex-col gap-3">
-                {replyTarget === null ? (
-                  <div className="flex items-center justify-center h-48 text-sm text-gray-400">Select a conversation to reply</div>
+              <div className="lg:col-span-3 bg-white rounded-xl border border-gray-200 flex flex-col overflow-hidden">
+                {!selectedThread ? (
+                  <div className="flex items-center justify-center flex-1 text-sm text-gray-400 p-8">Select a question to reply</div>
                 ) : (
                   <>
-                    <h3 className="font-semibold text-gray-700 text-sm border-b border-gray-100 pb-2">
-                      {replyTarget === 0 ? 'General Thread' : `Count #${replyTarget}${threads[replyTarget]?.[0]?.material_number ? ` — ${threads[replyTarget][0].material_number}` : ''}`}
-                    </h3>
-                    <div className="flex flex-col gap-2 flex-1 overflow-y-auto" style={{ maxHeight: 320 }}>
-                      {threadMessages.map((m) => {
-                        const isAdmin = m.role === 'admin';
-                        const isSystem = m.sender === 'SYSTEM';
-                        const bubbleClass = isAdmin
-                          ? 'bg-purple-600 text-white rounded-br-sm'
-                          : isSystem
-                            ? 'bg-amber-50 border border-amber-300 text-amber-900 rounded-bl-sm'
-                            : 'bg-gray-100 text-gray-800 rounded-bl-sm';
-                        const labelClass = isAdmin ? 'text-purple-200' : isSystem ? 'text-amber-600 font-semibold' : 'text-gray-500';
-                        const timeClass = isAdmin ? 'text-purple-300' : isSystem ? 'text-amber-500' : 'text-gray-400';
-                        return (
-                          <div key={m.id} className={`group flex items-end gap-1 ${isAdmin ? 'justify-end' : 'justify-start'}`}>
-                            {/* Delete button — left of bubble for admin msgs, right for counter/system */}
-                            {isAdmin && (
-                              <button
-                                onClick={() => setDeleteTarget(m)}
-                                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-400 hover:text-red-500 shrink-0"
-                                title="Delete message"
-                              >
-                                🗑
-                              </button>
-                            )}
-                            <div className={`text-sm rounded-2xl px-4 py-2.5 max-w-[85%] ${bubbleClass}`}>
-                              <div className={`text-xs mb-1 ${labelClass}`}>{isSystem ? '⚠️ SYSTEM' : m.sender}</div>
-                              <div className="whitespace-pre-wrap">{m.body}</div>
-                              <div className={`text-xs mt-1 ${timeClass}`}>{formatDateTime(m.sent_at)}</div>
-                            </div>
-                            {!isAdmin && (
-                              <button
-                                onClick={() => setDeleteTarget(m)}
-                                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-400 hover:text-red-500 shrink-0"
-                                title="Delete message"
-                              >
-                                🗑
-                              </button>
-                            )}
-                          </div>
-                        );
-                      })}
-                      {threadMessages.length === 0 && <div className="text-sm text-gray-400 text-center py-6">No messages in this thread yet</div>}
+                    <div className="px-4 py-3 border-b border-gray-100 flex-shrink-0">
+                      <h3 className="font-semibold text-gray-800 text-sm">{selectedThread.title}</h3>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {selectedThread.created_by} · {formatDateTime(selectedThread.created_at)}
+                        {selectedThread.answered && (
+                          <span className="ml-2 text-green-600 font-medium">✓ Answered by {selectedThread.answered_by}</span>
+                        )}
+                      </p>
                     </div>
-                    <div className="flex gap-2 pt-2 border-t border-gray-100">
-                      <input
-                        value={replyText}
-                        onChange={(e) => setReplyText(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleReply()}
-                        placeholder="Type reply and press Enter…"
-                        className="flex-1 min-h-[44px] px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        autoFocus
-                      />
-                      <Button onClick={handleReply} disabled={!replyText.trim()}>Reply</Button>
+
+                    <div className="flex flex-col gap-3 flex-1 overflow-y-auto p-4" style={{ maxHeight: 340 }}>
+                      {threadMessages.map((m) => (
+                        <div key={m.id} className="group flex items-end gap-1">
+                          <MessageBubble
+                            message={m}
+                            isOwn={m.role === 'admin'}
+                            onReply={msg => { setReplyingTo(msg); officeInputRef.current?.focus(); }}
+                            onScrollToMessage={scrollToMessage}
+                          />
+                          <button
+                            onClick={() => setDeleteTarget(m)}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-300 hover:text-red-500 shrink-0 text-base"
+                            title="Delete message"
+                          >🗑</button>
+                        </div>
+                      ))}
+                      {threadMessages.length === 0 && <div className="text-sm text-gray-400 text-center py-6">No messages yet</div>}
+                      <div ref={threadBottomRef} />
+                    </div>
+
+                    <div className="border-t border-gray-100 flex-shrink-0">
+                      {replyingTo && (
+                        <div className="flex items-start gap-2 px-4 pt-3 pb-1">
+                          <div className="flex-1 border-l-4 border-purple-400 bg-purple-50 rounded px-3 py-1.5 min-w-0">
+                            <p className="text-xs font-semibold text-purple-700">{replyingTo.sender}</p>
+                            <p className="text-xs text-purple-600 truncate">{replyingTo.body}</p>
+                          </div>
+                          <button onClick={() => setReplyingTo(null)} className="text-gray-400 hover:text-gray-600 text-lg leading-none mt-0.5">×</button>
+                        </div>
+                      )}
+                      <div className="flex gap-2 p-3">
+                        <input
+                          ref={officeInputRef}
+                          value={replyText}
+                          onChange={(e) => setReplyText(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleReply()}
+                          placeholder={replyingTo ? `Replying to ${replyingTo.sender}…` : 'Type reply and press Enter…'}
+                          className="flex-1 min-h-[44px] px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          autoFocus
+                        />
+                        <Button onClick={handleReply} disabled={!replyText.trim()}>Reply</Button>
+                      </div>
                     </div>
                   </>
                 )}

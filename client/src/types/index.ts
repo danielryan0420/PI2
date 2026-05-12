@@ -47,14 +47,32 @@ export interface Photo {
   uploaded_at: string;
 }
 
+export interface MessageThread {
+  id: number;
+  session_id: number;
+  count_id: number | null;
+  title: string;
+  created_by: string;
+  created_by_role: 'counter' | 'admin';
+  answered: boolean;
+  answered_by: string | null;
+  answered_at: string | null;
+  created_at: string;
+  message_count?: number;
+}
+
 export interface Message {
   id: number;
+  thread_id: number | null;
   count_id: number | null;
   session_id: number;
   sender: string;
   role: 'counter' | 'admin';
   body: string;
   sent_at: string;
+  reply_to_id: number | null;
+  reply_to_sender: string | null;
+  reply_to_body: string | null;
   // enriched fields from office view
   material_number?: string | null;
   sloc?: string | null;

@@ -12,7 +12,7 @@ import openpyxl
 from services import (
     UserService, SessionService, CountService, PhotoService,
     MessageService, AuditService, SlocConfigService, MaterialService,
-    WmBinService, DashboardService, ImportService
+    WmBinService, DashboardService, ImportService, ThreadService
 )
 
 app = Flask(__name__)
@@ -399,6 +399,63 @@ def create_count_message(count_id):
         return jsonify({'id': message_id}), 201
     except Exception as e:
         return jsonify({'error': str(e)}), 400
+
+# ===== THREADS =====
+@app.post('/api/sessions/<int:session_id>/threads')
+def create_thread(session_id):
+    data = request.json or {}
+    title = (data.get('title') or '').strip()
+    sender = request.headers.get('x-username', '')
+    role = request.headers.get('x-role', 'counter')
+    count_id = data.get('count_id')
+
+    if not title or not sender:
+        return jsonify({'error': 'title and x-username header required'}), 400
+
+    session = SessionService.get_session(session_id)
+    if not session:
+        return jsonify({'error': 'Session not found'}), 404
+
+    thread_role = 'admin' if role not in ('counter', 'admin') else role
+    thread_id = ThreadService.create_thread(session_id, title, sender, thread_role, count_id)
+    thread = ThreadService.get_thread(thread_id)
+    return jsonify(thread), 201
+
+@app.get('/api/sessions/<int:session_id>/threads')
+def list_threads(session_id):
+    username = request.headers.get('x-username', '')
+    role = request.headers.get('x-role', 'counter')
+    if not username:
+        return jsonify({'error': 'x-username header required'}), 400
+    thread_role = 'admin' if role not in ('counter', 'admin') else role
+    threads = ThreadService.get_threads(session_id, username, thread_role)
+    return jsonify(threads)
+
+@app.get('/api/threads/<int:thread_id>/messages')
+def get_thread_messages(thread_id):
+    thread = ThreadService.get_thread(thread_id)
+    if not thread:
+        return jsonify({'error': 'Thread not found'}), 404
+    messages = ThreadService.get_thread_messages(thread_id)
+    return jsonify(messages)
+
+@app.post('/api/threads/<int:thread_id>/messages')
+def post_thread_message(thread_id):
+    data = request.json or {}
+    body = (data.get('body') or '').strip()
+    sender = request.headers.get('x-username', '')
+    role = request.headers.get('x-role', 'counter')
+    reply_to_id = data.get('reply_to_id')
+
+    if not body or not sender:
+        return jsonify({'error': 'body and x-username header required'}), 400
+
+    thread_role = 'admin' if role not in ('counter', 'admin') else role
+    try:
+        message = ThreadService.post_message(thread_id, sender, thread_role, body, reply_to_id)
+        return jsonify(message), 201
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 404
 
 # ===== SLOC CONFIG =====
 @app.get('/api/sloc-config')

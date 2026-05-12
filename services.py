@@ -1062,3 +1062,76 @@ class DashboardService:
             ORDER BY v.total_value DESC
             LIMIT 20
         """, (session_id,))
+
+
+class ThreadService:
+    @staticmethod
+    def create_thread(session_id: int, title: str, created_by: str, created_by_role: str, count_id: Optional[int] = None) -> int:
+        return db.insert(
+            """INSERT INTO message_threads (session_id, count_id, title, created_by, created_by_role)
+               VALUES (?, ?, ?, ?, ?)""",
+            (session_id, count_id, title, created_by, created_by_role)
+        )
+
+    @staticmethod
+    def get_threads(session_id: int, username: str, role: str) -> List[Dict]:
+        if role == 'counter':
+            rows = db.fetch_all("""
+                SELECT mt.*, COUNT(m.id) as message_count
+                FROM message_threads mt
+                LEFT JOIN messages m ON mt.id = m.thread_id
+                WHERE mt.session_id = ?
+                  AND (
+                    mt.created_by = ? COLLATE NOCASE
+                    OR EXISTS (SELECT 1 FROM counts c WHERE c.id = mt.count_id AND c.username = ? COLLATE NOCASE)
+                  )
+                GROUP BY mt.id
+                ORDER BY mt.created_at DESC
+            """, (session_id, username, username))
+        else:
+            rows = db.fetch_all("""
+                SELECT mt.*, COUNT(m.id) as message_count
+                FROM message_threads mt
+                LEFT JOIN messages m ON mt.id = m.thread_id
+                WHERE mt.session_id = ?
+                GROUP BY mt.id
+                ORDER BY mt.answered ASC, mt.created_at DESC
+            """, (session_id,))
+        return rows
+
+    @staticmethod
+    def get_thread(thread_id: int) -> Optional[Dict]:
+        return db.fetch_one("SELECT * FROM message_threads WHERE id = ?", (thread_id,))
+
+    @staticmethod
+    def get_thread_messages(thread_id: int) -> List[Dict]:
+        return db.fetch_all("""
+            SELECT m.*,
+                   r.sender   AS reply_to_sender,
+                   SUBSTR(r.body, 1, 200) AS reply_to_body
+            FROM messages m
+            LEFT JOIN messages r ON m.reply_to_id = r.id
+            WHERE m.thread_id = ?
+            ORDER BY m.sent_at ASC
+        """, (thread_id,))
+
+    @staticmethod
+    def post_message(thread_id: int, sender: str, role: str, body: str, reply_to_id: Optional[int] = None) -> Dict:
+        thread = db.fetch_one("SELECT session_id FROM message_threads WHERE id = ?", (thread_id,))
+        if not thread:
+            raise ValueError("Thread not found")
+        msg_id = db.insert(
+            "INSERT INTO messages (thread_id, session_id, sender, role, body, reply_to_id) VALUES (?, ?, ?, ?, ?, ?)",
+            (thread_id, thread['session_id'], sender, role, body, reply_to_id)
+        )
+        if role == 'admin':
+            db.execute(
+                "UPDATE message_threads SET answered = 1, answered_by = ?, answered_at = datetime('now') WHERE id = ?",
+                (sender, thread_id)
+            )
+        row = db.fetch_one("""
+            SELECT m.*, r.sender AS reply_to_sender, SUBSTR(r.body, 1, 200) AS reply_to_body
+            FROM messages m LEFT JOIN messages r ON m.reply_to_id = r.id
+            WHERE m.id = ?
+        """, (msg_id,))
+        return row
