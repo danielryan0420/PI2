@@ -9,11 +9,20 @@ echo Pulling Latest Changes from GitHub
 echo ======================================
 echo.
 
-git pull origin main
+git fetch origin main
 
 if errorlevel 1 (
     echo.
-    echo ERROR: Failed to pull from GitHub
+    echo ERROR: Failed to fetch from GitHub
+    pause
+    exit /b 1
+)
+
+git reset --hard origin/main
+
+if errorlevel 1 (
+    echo.
+    echo ERROR: Failed to reset to latest
     pause
     exit /b 1
 )
