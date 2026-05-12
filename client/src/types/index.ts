@@ -47,12 +47,16 @@ export interface Photo {
 
 export interface Message {
   id: number;
+  thread_id: number | null;
   count_id: number | null;
   session_id: number;
   sender: string;
-  role: 'counter' | 'office';
+  role: 'counter' | 'office' | 'admin';
   body: string;
   sent_at: string;
+  reply_to_id: number | null;
+  reply_to_sender: string | null;
+  reply_to_body: string | null;
   // enriched fields from office view
   material_number?: string | null;
   sloc?: string | null;

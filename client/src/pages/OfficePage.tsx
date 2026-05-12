@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { AppShell } from '../components/layout/AppShell';
 import { Button } from '../components/ui/Button';
 import { Input, Select, Textarea } from '../components/ui/Input';
 import { Dialog, ConfirmDialog } from '../components/ui/Dialog';
 import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import { StatusBadge, Badge } from '../components/ui/Badge';
+import { MessageBubble } from '../components/count/MessageBubble';
 import { useSession } from '../context/SessionContext';
 import { useToast } from '../context/ToastContext';
 import { api } from '../lib/api';
@@ -102,7 +103,10 @@ export function OfficePage() {
   const [messages, setMessages] = useState<MessageThread[]>([]);
   const [replyTarget, setReplyTarget] = useState<number | null>(null);
   const [replyText, setReplyText] = useState('');
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [threadMessages, setThreadMessages] = useState<Message[]>([]);
+  const threadBottomRef = useRef<HTMLDivElement>(null);
+  const officeInputRef = useRef<HTMLInputElement>(null);
 
   async function loadMessages() {
     if (!session) return;
@@ -144,13 +148,35 @@ export function OfficePage() {
     };
   }, [replyTarget]);
 
+  useEffect(() => {
+    threadBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [threadMessages]);
+
   async function handleReply() {
     if (replyTarget === null || !replyText.trim()) return;
     try {
-      await api.post(`/threads/${replyTarget}/messages`, { body: replyText }, headers);
+      await api.post(`/threads/${replyTarget}/messages`, {
+        body: replyText,
+        reply_to_id: replyingTo?.id ?? null,
+      }, headers);
       setReplyText('');
+      setReplyingTo(null);
       loadThread(replyTarget);
     } catch { /**/ }
+  }
+
+  function handleOfficeReply(msg: Message) {
+    setReplyingTo(msg);
+    officeInputRef.current?.focus();
+  }
+
+  function scrollToMessage(msgId: number) {
+    const el = document.querySelector(`[data-msg-id="${msgId}"]`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('ring-2', 'ring-blue-400', 'ring-offset-1');
+      setTimeout(() => el.classList.remove('ring-2', 'ring-blue-400', 'ring-offset-1'), 1500);
+    }
   }
 
   // ─── Import tab state ─────────────────────────────────────────────────────
@@ -557,28 +583,41 @@ export function OfficePage() {
                         )}
                       </p>
                     </div>
-                    <div className="flex flex-col gap-2 flex-1 overflow-y-auto">
+                    <div className="flex flex-col gap-3 flex-1 overflow-y-auto" style={{ maxHeight: 340 }}>
                       {threadMessages.map((m) => (
-                        <div key={m.id} className={`flex ${m.role === 'office' ? 'justify-end' : 'justify-start'}`}>
-                          <div className={`text-sm rounded-2xl px-4 py-2.5 max-w-[80%] ${m.role === 'office' ? 'bg-purple-600 text-white rounded-br-sm' : 'bg-gray-100 text-gray-800 rounded-bl-sm'}`}>
-                            <div className={`text-xs font-medium mb-1 ${m.role === 'office' ? 'text-purple-200' : 'text-gray-500'}`}>{m.sender}</div>
-                            <div>{m.body}</div>
-                            <div className={`text-xs mt-1 ${m.role === 'office' ? 'text-purple-300' : 'text-gray-400'}`}>{formatDateTime(m.sent_at)}</div>
-                          </div>
-                        </div>
+                        <MessageBubble
+                          key={m.id}
+                          message={m}
+                          isOwn={m.role === 'office' || m.role === 'admin'}
+                          onReply={handleOfficeReply}
+                          onScrollToMessage={scrollToMessage}
+                        />
                       ))}
                       {threadMessages.length === 0 && <div className="text-sm text-gray-400 text-center py-6">Loading thread…</div>}
+                      <div ref={threadBottomRef} />
                     </div>
-                    <div className="flex gap-2 pt-2 border-t border-gray-100">
-                      <input
-                        value={replyText}
-                        onChange={(e) => setReplyText(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleReply()}
-                        placeholder="Type reply and press Enter…"
-                        className="flex-1 min-h-[44px] px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        autoFocus
-                      />
-                      <Button onClick={handleReply} disabled={!replyText.trim()}>Reply</Button>
+                    <div className="pt-2 border-t border-gray-100">
+                      {replyingTo && (
+                        <div className="flex items-start gap-2 mb-2">
+                          <div className="flex-1 border-l-4 border-purple-400 bg-purple-50 rounded px-3 py-1.5 min-w-0">
+                            <p className="text-xs font-semibold text-purple-700">{replyingTo.sender}</p>
+                            <p className="text-xs text-purple-600 truncate">{replyingTo.body}</p>
+                          </div>
+                          <button onClick={() => setReplyingTo(null)} className="text-gray-400 hover:text-gray-600 text-lg leading-none mt-0.5">×</button>
+                        </div>
+                      )}
+                      <div className="flex gap-2">
+                        <input
+                          ref={officeInputRef}
+                          value={replyText}
+                          onChange={(e) => setReplyText(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleReply()}
+                          placeholder={replyingTo ? `Replying to ${replyingTo.sender}…` : 'Type reply and press Enter…'}
+                          className="flex-1 min-h-[44px] px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          autoFocus
+                        />
+                        <Button onClick={handleReply} disabled={!replyText.trim()}>Reply</Button>
+                      </div>
                     </div>
                   </>
                 )}

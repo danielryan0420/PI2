@@ -71,15 +71,19 @@ router.get('/sessions/:sessionId/threads', (req, res) => {
   res.json(threads);
 });
 
-// Get messages within a thread
+// Get messages within a thread (with reply-to context joined in)
 router.get('/threads/:threadId/messages', (req, res) => {
   const thread = db.prepare('SELECT * FROM message_threads WHERE id = ?').get(req.params.threadId);
   if (!thread) { res.status(404).json({ error: 'Thread not found' }); return; }
 
   const messages = db.prepare(`
-    SELECT * FROM messages
-    WHERE thread_id = ?
-    ORDER BY sent_at ASC
+    SELECT m.*,
+           r.sender   AS reply_to_sender,
+           SUBSTR(r.body, 1, 200) AS reply_to_body
+    FROM messages m
+    LEFT JOIN messages r ON m.reply_to_id = r.id
+    WHERE m.thread_id = ?
+    ORDER BY m.sent_at ASC
   `).all(req.params.threadId);
 
   res.json(messages);
@@ -87,7 +91,7 @@ router.get('/threads/:threadId/messages', (req, res) => {
 
 // Post a message to a thread
 router.post('/threads/:threadId/messages', (req, res) => {
-  const { body } = req.body as { body: string };
+  const { body, reply_to_id } = req.body as { body: string; reply_to_id?: number };
   const sender = req.headers['x-username'] as string;
   const role = req.headers['x-role'] as string;
 
@@ -100,10 +104,14 @@ router.post('/threads/:threadId/messages', (req, res) => {
   if (!thread) { res.status(404).json({ error: 'Thread not found' }); return; }
 
   const result = db.prepare(
-    'INSERT INTO messages (thread_id, session_id, sender, role, body) VALUES (?, ?, ?, ?, ?)'
-  ).run(req.params.threadId, thread.session_id, sender, role, body.trim());
+    'INSERT INTO messages (thread_id, session_id, sender, role, body, reply_to_id) VALUES (?, ?, ?, ?, ?, ?)'
+  ).run(req.params.threadId, thread.session_id, sender, role, body.trim(), reply_to_id ?? null);
 
-  const message = db.prepare('SELECT * FROM messages WHERE id = ?').get(result.lastInsertRowid);
+  const message = db.prepare(`
+    SELECT m.*, r.sender AS reply_to_sender, SUBSTR(r.body, 1, 200) AS reply_to_body
+    FROM messages m LEFT JOIN messages r ON m.reply_to_id = r.id
+    WHERE m.id = ?
+  `).get(result.lastInsertRowid);
 
   // Notify questioner if this is an answer from office/admin
   if (role !== 'counter') {
