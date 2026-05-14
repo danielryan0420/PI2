@@ -71,9 +71,12 @@ echo Setup Complete!
 echo ======================================
 echo.
 echo To start the application, run:
-echo   python server.py
+echo   python run_production.py
 echo.
 echo Then open: http://localhost:8081
+echo.
+echo For multi-user production (50 users), also run:
+echo   setup_nginx_proxy.bat
 echo.
 echo Default Credentials:
 echo   Admin: admin / admin

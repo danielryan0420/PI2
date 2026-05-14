@@ -1,139 +1,130 @@
-# Quick Start Guide - Windows
+# Quick Start Guide
 
-Get the Physical Inventory System running in 5 minutes.
+## First Time Setup
 
-## Step 1: Clone the Project
+**Step 1 — Run setup (double-click `setup.bat`)**
 
-```powershell
-cd C:\Users\danie\Desktop\Projects
-git clone --branch claude/typescript-to-python-streamlit-xx0cO https://github.com/danielryan0420/Physical_Inventory.git
-cd Physical_Inventory
+Installs Python packages, builds the React frontend, and seeds the database.
+Takes 2-3 minutes. Only needed once.
+
+**Step 2 — Start the app**
+
+```bat
+python run_production.py
 ```
 
-## Step 2: Run Setup (Automated)
+Handles 50 concurrent users on Windows (Waitress) and Linux/Mac (Gunicorn).
+Listens on `127.0.0.1:8081` — localhost only, no firewall rule needed.
 
-**Just double-click `setup.bat`** and wait for it to finish.
+**Step 3 — Start the proxy (double-click `setup_nginx_proxy.bat`)**
 
-This will:
-1. ✓ Install Python dependencies
-2. ✓ Install Node dependencies
-3. ✓ Build React frontend
-4. ✓ Initialize database with seed data
+Routes user traffic through port 80 (already open on any network).
+Users access the app at `http://YOUR-PC-NAME` — no port number needed.
 
-Takes 2-3 minutes total.
+---
 
-## Step 3: Start the Application
+## Enable HTTPS (Recommended)
 
-```powershell
-python server.py
+HTTPS is required for barcode camera scanning on phones and tablets.
+Run once:
+
+```bat
+python setup_ssl.py
+setup_nginx_proxy.bat
 ```
 
-You should see:
+Users then access `https://YOUR-PC-NAME`. Install the certificate on each
+device once (instructions printed by `setup_ssl.py`).
+
+---
+
+## Default Credentials
+
+| User | Password | Role |
+|------|----------|------|
+| `admin` | `admin` | Full access |
+| `counter1` | *(any)* | Counter only |
+| `counter2` | *(any)* | Counter only |
+
+Change the admin password in Admin → Users after first login.
+
+---
+
+## Daily Use
+
+```bat
+python run_production.py      ← start the app
+setup_nginx_proxy.bat         ← start the proxy (if not already running)
 ```
-* Running on http://0.0.0.0:8081
+
+To stop: close the `run_production.py` window. Stop nginx with:
+```bat
+taskkill /F /IM nginx.exe
 ```
 
-## Step 4: Open in Browser
+---
 
-Go to: **http://localhost:8081**
+## Updates
 
-## Login Credentials
+Double-click **`update.bat`** — pulls latest code from GitHub, rebuilds
+the frontend, then prompts you to restart.
 
-| User | Password | Access |
-|------|----------|--------|
-| `admin` | `admin` | Full access - all features |
-| `counter1` | any | Counter role - counting only |
-| `counter2` | any | Counter role - counting only |
-
-## What You Can Do
-
-### As Counter (`counter1`)
-- ✓ Click scan button and use phone camera to scan barcodes/QR codes
-- ✓ Use Zebra scanner (just scan, press Enter to advance fields)
-- ✓ Attach photos to counts
-- ✓ See dashboard
-
-### As Admin (`admin`)
-- ✓ Everything counter can do, PLUS:
-- ✓ Manually create counts
-- ✓ Bulk import from Excel
-- ✓ Configure SLOCs
-- ✓ Manage materials
-- ✓ Set up WM bins
-- ✓ Create/close sessions
-- ✓ Manage users
-- ✓ View audit logs
+---
 
 ## Troubleshooting
 
-### "Python is not installed"
-Download from https://www.python.org/ and ensure you check "Add Python to PATH" during installation.
+**Port 80 already in use**
+Close IIS or any other web server, then re-run `setup_nginx_proxy.bat`.
 
-### "Node is not installed"
-Download from https://nodejs.org/ and install LTS version.
-
-### "Port 8081 is already in use"
-```powershell
-# Find what's using the port
+**Port 8081 already in use**
+```bat
 netstat -ano | findstr :8081
-
-# Kill the process (replace PID with the number shown)
 taskkill /PID <PID> /F
 ```
 
-### React build fails
-```powershell
+**React build fails**
+```bat
 cd client
-rm -r node_modules package-lock.json
+rmdir /s /q node_modules
+del package-lock.json
 npm install
 npm run build
 cd ..
 ```
 
-## Development Mode (with hot reload)
+**Camera not working on phone**
+HTTPS is required. Run `python setup_ssl.py` then `setup_nginx_proxy.bat`,
+and install the certificate on the device.
 
-Want to modify the React code and see changes instantly?
+---
 
-**Terminal 1:**
-```powershell
-python server.py
-```
+## Windows Server (IIS)
 
-**Terminal 2:**
-```powershell
-cd client
-npm run dev
-```
-
-Then open http://localhost:5173
-
-## Production Build
-
-To prepare for deployment:
+Use `setup_iis_proxy.ps1` instead of `setup_nginx_proxy.bat`:
 
 ```powershell
-cd client
-npm run build
-cd ..
-python server.py
+# Run as Administrator
+Set-ExecutionPolicy Bypass -Scope Process -Force
+.\setup_iis_proxy.ps1
 ```
 
-Flask will serve the built React app at http://localhost:8081
+Routes through IIS on the existing port 80/443. No new firewall rules.
 
-## File Locations
+---
 
-- **Database**: `inventory.db` (auto-created)
-- **Photos**: `uploads/` folder
-- **React code**: `client/src/` folder
-- **Python API**: `server.py`
+## File Reference
 
-## Next Steps
-
-1. **Create a session** (Admin page)
-2. **Create some users** (Admin page)
-3. **Configure SLOCs** (Office section)
-4. **Start counting** (Counter page)
-
-## Need Help?
-
-Check the full README.md for detailed documentation.
+| File | Purpose |
+|------|---------|
+| `run_production.py` | Start production server (50 users) |
+| `server.py` | Dev server — `python server.py` for local testing |
+| `setup.bat` | First-time setup |
+| `update.bat` | Pull latest updates from GitHub |
+| `setup_ssl.py` | Generate SSL certificate for HTTPS |
+| `setup_nginx_proxy.bat` | Start nginx proxy (Windows PC) |
+| `setup_iis_proxy.ps1` | Configure IIS proxy (Windows Server) |
+| `database.py` | Database schema and migrations |
+| `services.py` | Business logic |
+| `init_db.py` | Seed data (called automatically on startup) |
+| `inventory.db` | SQLite database — back this up daily |
+| `uploads/` | Photo attachments — back this up daily |

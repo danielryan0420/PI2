@@ -29,6 +29,15 @@ def _track_activity():
         except Exception:
             pass
 
+@app.after_request
+def _security_headers(response):
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    response.headers['Permissions-Policy'] = 'geolocation=(), microphone=()'
+    return response
+
 UPLOAD_FOLDER = Path('uploads')
 UPLOAD_FOLDER.mkdir(exist_ok=True)
 ALLOWED_EXTENSIONS = {'jpg', 'jpeg', 'png'}
@@ -901,21 +910,6 @@ def _auto_init():
 _auto_init()
 
 if __name__ == '__main__':
-    cert_file = Path(__file__).parent / 'cert.pem'
-    key_file  = Path(__file__).parent / 'key.pem'
-    if cert_file.exists() and key_file.exists():
-        import socket
-        try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            s.connect(('8.8.8.8', 80))
-            local_ip = s.getsockname()[0]
-            s.close()
-        except Exception:
-            local_ip = '127.0.0.1'
-        print(f"\n HTTPS enabled — open https://{local_ip}:8081 on your devices\n")
-        app.run(debug=False, host='127.0.0.1', port=8081,
-                ssl_context=(str(cert_file), str(key_file)))
-    else:
-        print("\n HTTP mode — camera will not work on iPhone.")
-        print(" Run 'python setup_ssl.py' once to enable HTTPS.\n")
-        app.run(debug=True, host='127.0.0.1', port=8081)
+    # Dev-only: direct Flask run on localhost.
+    # For production (50 users), use: python run_production.py
+    app.run(debug=True, host='127.0.0.1', port=8081)

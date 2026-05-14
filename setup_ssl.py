@@ -1,21 +1,25 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
-Generate a self-signed SSL certificate so the app can run over HTTPS.
-HTTPS is required for camera access on iPhone/iPad.
+Generate a self-signed SSL certificate for the nginx reverse proxy.
 
-Run once:
+Run once to enable HTTPS so that:
+  - Barcode camera works on phones/tablets (requires secure context)
+  - Traffic between users and the server is encrypted
+  - IT sees a padlock in the browser
+
+After running this, re-run setup_nginx_proxy.bat — it detects cert.pem
+automatically and switches nginx to HTTPS on port 443.
+
+Usage:
     python setup_ssl.py
-
-Then restart the server:
-    python server.py
-
-The server will automatically detect cert.pem / key.pem and switch to HTTPS.
+    setup_nginx_proxy.bat        (re-run to pick up the cert)
 """
 
 import socket
 import datetime
 import ipaddress
 from pathlib import Path
+
 
 def get_local_ip():
     try:
@@ -26,6 +30,7 @@ def get_local_ip():
         return ip
     except Exception:
         return '127.0.0.1'
+
 
 def generate():
     try:
@@ -44,7 +49,9 @@ def generate():
 
     local_ip = get_local_ip()
     hostname = socket.gethostname()
-    print(f"Detected local IP: {local_ip}")
+    print(f"Detected local IP : {local_ip}")
+    print(f"Detected hostname : {hostname}")
+    print()
 
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 
@@ -74,40 +81,53 @@ def generate():
     )
 
     base = Path(__file__).parent
-    (base / 'cert.pem').write_bytes(cert.public_bytes(serialization.Encoding.PEM))
-    (base / 'key.pem').write_bytes(key.private_bytes(
+    cert_path = base / 'cert.pem'
+    key_path  = base / 'key.pem'
+
+    cert_path.write_bytes(cert.public_bytes(serialization.Encoding.PEM))
+    key_path.write_bytes(key.private_bytes(
         serialization.Encoding.PEM,
         serialization.PrivateFormat.TraditionalOpenSSL,
         serialization.NoEncryption()
     ))
 
-    print("\n✓ cert.pem and key.pem created")
-    print(f"✓ Certificate covers: localhost, 127.0.0.1, {local_ip}\n")
+    print("✓ cert.pem created")
+    print("✓ key.pem  created")
+    print(f"✓ Certificate covers: localhost, 127.0.0.1, {local_ip}, {hostname}")
+    print()
     print("=" * 60)
-    print("NEXT STEPS TO ENABLE CAMERA ON IPHONE")
+    print("NEXT STEPS")
     print("=" * 60)
-    print(f"""
-1. Restart the server:
-       python server.py
-   It will now run on HTTPS.
+    print()
+    print("1. Re-run the proxy setup (detects cert.pem automatically):")
+    print()
+    print("   Windows PC (nginx):     setup_nginx_proxy.bat")
+    print("   Windows Server (IIS):   setup_iis_proxy.ps1")
+    print()
+    print("   nginx will now listen on port 443 (HTTPS) and redirect")
+    print("   plain HTTP on port 80 to HTTPS automatically.")
+    print()
+    print("2. Install the certificate on each device (one time per device)")
+    print("   so the browser trusts it without a warning:")
+    print()
+    print(f"   Open:  https://{local_ip}/cert")
+    print()
+    print("   Windows:  double-click the downloaded .crt → Install →")
+    print("             'Local Machine' → 'Trusted Root Certification'")
+    print()
+    print("   iPhone:   Safari will offer 'Allow' → Settings →")
+    print("             General → VPN & Device Management → Install →")
+    print("             Settings → General → About →")
+    print("             Certificate Trust Settings → enable trust")
+    print()
+    print("   Android:  Settings → Security → Install from storage")
+    print()
+    print("3. Users then access the app at:")
+    print(f"   https://{local_ip}     or     https://{hostname}")
+    print()
+    print("Camera / barcode scanning will work on all devices.")
+    print()
 
-2. Install the certificate on your iPhone:
-   a. On your iPhone, open Safari and go to:
-          https://{local_ip}:8081/cert
-   b. Safari will say "This website is trying to download
-      a configuration profile." — tap Allow.
-   c. Go to Settings → General → VPN & Device Management
-   d. Tap "Physical Inventory" and tap Install
-   e. Go to Settings → General → About →
-      Certificate Trust Settings
-   f. Turn on full trust for "Physical Inventory"
-
-3. Open the app on Safari:
-       https://{local_ip}:8081
-   The camera scanner will now work.
-
-NOTE: You only need to do steps 2-3 once per device.
-""")
 
 if __name__ == '__main__':
     generate()

@@ -82,6 +82,6 @@ echo Update Complete!
 echo ======================================
 echo.
 echo To start the app, run:
-echo   python server.py
+echo   python run_production.py
 echo.
 pause
