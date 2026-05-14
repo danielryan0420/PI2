@@ -7,17 +7,28 @@
 Installs Python packages, builds the React frontend, and seeds the database.
 Takes 2-3 minutes. Only needed once.
 
-**Step 2 — Start the app**
+**Step 2 — Start everything (double-click `start.bat`)**
 
+Launches the app server and proxy together in one click.
+Users access the app at `http://YOUR-PC-NAME` — no port number needed.
+
+To stop everything: double-click `stop.bat`.
+
+---
+
+### Manual startup (alternative to start.bat)
+
+**Start the app:**
 ```bat
 python run_production.py
 ```
-
 Handles 50 concurrent users on Windows (Waitress) and Linux/Mac (Gunicorn).
 Listens on `127.0.0.1:8081` — localhost only, no firewall rule needed.
 
-**Step 3 — Start the proxy (double-click `setup_nginx_proxy.bat`)**
-
+**Start the proxy:**
+```bat
+setup_nginx_proxy.bat
+```
 Routes user traffic through port 80 (already open on any network).
 Users access the app at `http://YOUR-PC-NAME` — no port number needed.
 
@@ -52,15 +63,9 @@ Change the admin password in Admin → Users after first login.
 
 ## Daily Use
 
-```bat
-python run_production.py      ← start the app
-setup_nginx_proxy.bat         ← start the proxy (if not already running)
-```
+Double-click **`start.bat`** — starts both the app and proxy together.
 
-To stop: close the `run_production.py` window. Stop nginx with:
-```bat
-taskkill /F /IM nginx.exe
-```
+To stop everything, double-click **`stop.bat`**.
 
 ---
 
@@ -116,12 +121,14 @@ Routes through IIS on the existing port 80/443. No new firewall rules.
 
 | File | Purpose |
 |------|---------|
-| `run_production.py` | Start production server (50 users) |
-| `server.py` | Dev server — `python server.py` for local testing |
-| `setup.bat` | First-time setup |
+| `start.bat` | **Start everything** — app + proxy in one click |
+| `stop.bat` | **Stop everything** — kills app server and nginx |
+| `setup.bat` | First-time setup (run once) |
 | `update.bat` | Pull latest updates from GitHub |
+| `run_production.py` | App server only (used by start.bat) |
+| `setup_nginx_proxy.bat` | Proxy only (used by start.bat) |
+| `server.py` | Dev server — `python server.py` for local testing |
 | `setup_ssl.py` | Generate SSL certificate for HTTPS |
-| `setup_nginx_proxy.bat` | Start nginx proxy (Windows PC) |
 | `setup_iis_proxy.ps1` | Configure IIS proxy (Windows Server) |
 | `database.py` | Database schema and migrations |
 | `services.py` | Business logic |
