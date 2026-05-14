@@ -913,9 +913,9 @@ if __name__ == '__main__':
         except Exception:
             local_ip = '127.0.0.1'
         print(f"\n HTTPS enabled — open https://{local_ip}:8081 on your devices\n")
-        app.run(debug=False, host='0.0.0.0', port=8081,
+        app.run(debug=False, host='127.0.0.1', port=8081,
                 ssl_context=(str(cert_file), str(key_file)))
     else:
         print("\n HTTP mode — camera will not work on iPhone.")
         print(" Run 'python setup_ssl.py' once to enable HTTPS.\n")
-        app.run(debug=True, host='0.0.0.0', port=8081)
+        app.run(debug=True, host='127.0.0.1', port=8081)

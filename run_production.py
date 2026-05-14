@@ -29,7 +29,7 @@ def main():
     cpu_cores = get_cpu_count()
     workers = int(os.environ.get('WORKERS', (2 * cpu_cores) + 1))
     port = os.environ.get('PORT', '8081')
-    host = os.environ.get('HOST', '0.0.0.0')
+    host = os.environ.get('HOST', '127.0.0.1')
     timeout = int(os.environ.get('TIMEOUT', '60'))
     log_level = os.environ.get('LOG_LEVEL', 'info')
 
