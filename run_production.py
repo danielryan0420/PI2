@@ -53,7 +53,7 @@ def run_waitress():
         subprocess.check_call([sys.executable, "-m", "pip", "install", "waitress==3.0.1"])
         import waitress
 
-    threads = int(os.environ.get('THREADS', '32'))
+    threads = int(os.environ.get('THREADS', '64'))
     _banner("Waitress (Windows)", "Threads", threads)
 
     from wsgi import app
