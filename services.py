@@ -1,7 +1,10 @@
 from datetime import datetime
+from pathlib import Path
 from typing import List, Dict, Optional, Any
 from database import db
 from werkzeug.security import generate_password_hash, check_password_hash
+
+UPLOADS_DIR = Path(__file__).parent / 'uploads'
 
 
 class SessionService:
@@ -101,19 +104,30 @@ class CountService:
             return
 
         allowed = {'quantity', 'wm_bin', 'zbin', 'status', 'material_number', 'sloc'}
+        changes: Dict[str, tuple] = {}
         for field, new_value in updates.items():
             if field not in allowed:
                 continue
             old_value = count.get(field)
             if old_value != new_value:
-                db.execute(
-                    f"UPDATE counts SET {field} = ?, updated_at = ? WHERE id = ?",
-                    (new_value, datetime.now().isoformat(), count_id)
-                )
-                AuditService.log_event(
-                    count_id, editor_username, 'edit',
-                    field, str(old_value), str(new_value), reason
-                )
+                changes[field] = (old_value, new_value)
+
+        if not changes:
+            return
+
+        set_clause = ', '.join(f"{f} = ?" for f in changes)
+        values = tuple(nv for _, nv in changes.values())
+        values += (datetime.now().isoformat(), count_id)
+        db.execute(
+            f"UPDATE counts SET {set_clause}, updated_at = ? WHERE id = ?",
+            values
+        )
+
+        for field, (old_value, new_value) in changes.items():
+            AuditService.log_event(
+                count_id, editor_username, 'edit',
+                field, str(old_value), str(new_value), reason
+            )
 
     @staticmethod
     def verify_count(count_id: int, editor_username: str) -> None:
@@ -145,7 +159,15 @@ class PhotoService:
 
     @staticmethod
     def delete_photo(photo_id: int) -> None:
+        photo = db.fetch_one("SELECT filename FROM photos WHERE id = ?", (photo_id,))
         db.execute("DELETE FROM photos WHERE id = ?", (photo_id,))
+        if photo:
+            try:
+                filepath = UPLOADS_DIR / photo['filename']
+                if filepath.exists():
+                    filepath.unlink()
+            except OSError:
+                pass
 
 
 class MessageService:
@@ -457,27 +479,19 @@ class WmBinService:
 class MaterialService:
     @staticmethod
     def create_or_update_material(material_number: str, description: str = "", base_uom: str = "", material_type: str = "", material_group: str = "") -> None:
-        existing = db.fetch_one(
-            "SELECT * FROM sap_materials WHERE material_number = ?",
-            (material_number,)
+        db.execute(
+            """
+            INSERT INTO sap_materials (material_number, description, base_uom, material_type, material_group, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(material_number) DO UPDATE SET
+                description = excluded.description,
+                base_uom = excluded.base_uom,
+                material_type = excluded.material_type,
+                material_group = excluded.material_group,
+                updated_at = excluded.updated_at
+            """,
+            (material_number, description, base_uom, material_type, material_group, datetime.now().isoformat())
         )
-        if existing:
-            db.execute(
-                """
-                UPDATE sap_materials
-                SET description = ?, base_uom = ?, material_type = ?, material_group = ?, updated_at = ?
-                WHERE material_number = ?
-                """,
-                (description, base_uom, material_type, material_group, datetime.now().isoformat(), material_number)
-            )
-        else:
-            db.insert(
-                """
-                INSERT INTO sap_materials (material_number, description, base_uom, material_type, material_group)
-                VALUES (?, ?, ?, ?, ?)
-                """,
-                (material_number, description, base_uom, material_type, material_group)
-            )
 
     @staticmethod
     def get_material(material_number: str) -> Optional[Dict]:
@@ -738,7 +752,7 @@ class ImportService:
                 continue
             try:
                 db.insert("""
-                    INSERT INTO sap_storage_locations (code, plant, description, storage_type)
+                    INSERT OR REPLACE INTO sap_storage_locations (code, plant, description, storage_type)
                     VALUES (?, ?, ?, ?)
                 """, (
                     code, plant,

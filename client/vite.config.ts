@@ -6,9 +6,9 @@ export default defineConfig({
   server: {
     port: 3000,
     proxy: {
-      '/api': { target: 'http://localhost:3001', changeOrigin: true },
-      '/photos': { target: 'http://localhost:3001', changeOrigin: true },
-      '/socket.io': { target: 'http://localhost:3001', ws: true, changeOrigin: true },
+      '/api': { target: 'http://localhost:8081', changeOrigin: true },
+      '/photos': { target: 'http://localhost:8081', changeOrigin: true },
+      '/socket.io': { target: 'http://localhost:8081', ws: true, changeOrigin: true },
     },
   },
 });

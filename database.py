@@ -374,6 +374,9 @@ CREATE INDEX IF NOT EXISTS idx_messages_thread ON messages(thread_id);
 ALTER TABLE messages ADD COLUMN reply_to_id INTEGER REFERENCES messages(id) ON DELETE SET NULL;
 CREATE INDEX IF NOT EXISTS idx_messages_reply_to ON messages(reply_to_id);
 """),
+    ("015_counts_warnings_index.sql", """
+CREATE INDEX IF NOT EXISTS idx_counts_warnings ON counts(validation_warnings);
+"""),
 ]
 
 class Database:
@@ -428,7 +431,10 @@ class Database:
                 conn.execute(query, params)
                 conn.execute("COMMIT")
             except Exception:
-                conn.execute("ROLLBACK")
+                try:
+                    conn.execute("ROLLBACK")
+                except Exception:
+                    pass
                 raise
 
     def execute_many(self, query: str, params: List[tuple]) -> None:
@@ -438,7 +444,10 @@ class Database:
                 conn.executemany(query, params)
                 conn.execute("COMMIT")
             except Exception:
-                conn.execute("ROLLBACK")
+                try:
+                    conn.execute("ROLLBACK")
+                except Exception:
+                    pass
                 raise
 
     def insert(self, query: str, params: tuple = ()) -> int:
@@ -450,7 +459,10 @@ class Database:
                 conn.execute("COMMIT")
                 return lastid
             except Exception:
-                conn.execute("ROLLBACK")
+                try:
+                    conn.execute("ROLLBACK")
+                except Exception:
+                    pass
                 raise
 
     def fetch_one(self, query: str, params: tuple = ()) -> Optional[Dict[str, Any]]:
