@@ -1,78 +1,45 @@
 # Physical Inventory System
 
-A Python/Flask backend + React frontend inventory management system with support for QR/barcode scanning, photo capture, and multi-role workflows.
+A Python/Flask backend + React frontend inventory management system for warehouse counting operations. Supports QR/barcode scanning, photo capture, SAP data imports, and multi-role workflows.
 
 ## Features
 
-- **Beautiful React UI**: Full-featured React frontend with Tailwind CSS styling
-- **Python Backend**: Flask-based REST API with SQLite database
-- **Counter Interface**: Capture inventory counts with camera-based barcode/QR scanning and photo attachments
-- **Admin Features**: Manual entry, bulk import, SLOC management, material master data, WM bin configuration
-- **Analytics**: Real-time dashboard with discrepancy detection and counter performance tracking
-- **Mobile-Friendly**: Works on tablets and phones with Bluetooth Zebra scanner support
-- **Audit Trail**: Complete audit logging of all count modifications
+- **React UI** — Full-featured frontend with Tailwind CSS
+- **Flask REST API** — SQLite database, 50+ endpoints
+- **Counter Interface** — Camera barcode/QR scanning, photo attachments, Zebra scanner support
+- **Admin Features** — Manual entry, bulk SAP import, SLOC management, WM bin configuration
+- **Analytics** — Real-time dashboard with discrepancy detection and counter performance tracking
+- **Audit Trail** — Complete logging of all count modifications
+- **50 Concurrent Users** — Waitress (Windows) / Gunicorn (Linux) production server
 
 ## Tech Stack
 
-- **Backend**: Python 3.8+, Flask, SQLite
-- **Frontend**: React 19, TypeScript, Tailwind CSS, Vite
-- **Scanning**: zxing (camera) + Bluetooth keyboard input (Zebra scanners)
+- **Backend:** Python 3.8+, Flask 3.0.3, SQLite (WAL mode)
+- **Production Server:** Waitress 3.0.1 (Windows) / Gunicorn 21.2.0 (Linux/Mac)
+- **Proxy:** nginx (Windows PC) or IIS (Windows Server) on port 80/443
+- **Frontend:** React 19, TypeScript, Tailwind CSS, Vite
+- **Scanning:** zxing (camera) + Bluetooth keyboard input (Zebra scanners)
 
-## Installation
+## Quick Setup (Windows)
 
-### Prerequisites
-- Python 3.8+ 
-- Node.js 18+ (for building React)
+**Step 1 — First time only:**
+```bat
+setup.bat
+```
+Installs dependencies, builds React, seeds the database.
 
-### Setup
-
-1. **Clone and enter the project:**
-```bash
-cd C:\Users\danie\Desktop\Projects\Physical_Inventory
+**Step 2 — Start the app:**
+```bat
+python run_production.py
 ```
 
-2. **Install Python dependencies:**
-```bash
-pip install -r requirements.txt
+**Step 3 — Start the proxy:**
+```bat
+setup_nginx_proxy.bat
 ```
+Users access the app at `http://YOUR-PC-NAME` — no port number, no firewall change.
 
-3. **Install Node dependencies and build React:**
-```bash
-cd client
-npm install
-npm run build
-cd ..
-```
-
-4. **Initialize database:**
-```bash
-python3 init_db.py
-```
-
-## Running the Application
-
-### Development (with React hot reload)
-
-Terminal 1 - Python backend:
-```bash
-python3 server.py
-```
-
-Terminal 2 - React dev server:
-```bash
-cd client
-npm run dev
-```
-
-Then open http://localhost:5173
-
-### Production
-
-```bash
-python3 server.py
-```
-
-App will be available at http://localhost:8081
+See **QUICKSTART.md** for full instructions including HTTPS setup.
 
 ## User Roles
 
@@ -82,147 +49,161 @@ App will be available at http://localhost:8081
 - View dashboard and recent submissions
 
 ### Admin
-- Full counter access
-- Manual count entry and bulk import
-- Manage SLOC configurations
-- Maintain material master data
-- Configure WM bins and storage locations
+- All counter access plus:
+- Manual count entry and bulk SAP import
+- Manage SLOC configurations and WM bins
 - Create and manage inventory sessions
-- User administration
-- View comprehensive audit logs
+- User administration and audit logs
 
 ## Default Credentials
 
-After running `python3 init_db.py`:
-- **Admin**: `admin` / `admin`
-- **Counters**: `counter1`, `counter2` / any
+| User | Password | Role |
+|------|----------|------|
+| `admin` | `admin` | Full access |
+| `counter1` | *(any)* | Counter only |
+| `counter2` | *(any)* | Counter only |
+
+Change the admin password immediately after first login.
 
 ## Project Structure
 
 ```
-.
-├── server.py              # Flask API server
-├── database.py            # SQLite setup & migrations
-├── services.py            # Business logic layer
-├── init_db.py             # Database initialization
-├── requirements.txt       # Python dependencies
-├── client/                # React frontend
+Physical_Inventory/
+├── server.py                # Flask application (routes, API)
+├── services.py              # Business logic layer
+├── database.py              # SQLite setup, WAL config, 15 migrations
+├── wsgi.py                  # WSGI entry point for Waitress/Gunicorn
+├── init_db.py               # Seed data (auto-runs on startup)
+├── run_production.py        # Production server launcher (50 users)
+├── run_production.sh        # Bash variant (Linux/Mac)
+├── requirements.txt         # Python dependencies
+├── setup.bat                # First-time Windows setup
+├── update.bat               # Pull updates from GitHub
+├── setup_ssl.py             # Generate SSL certificate for HTTPS
+├── setup_nginx_proxy.bat    # nginx proxy setup (Windows PC)
+├── setup_iis_proxy.ps1      # IIS proxy setup (Windows Server)
+├── package.json             # Root npm scripts
+├── client/                  # React frontend
 │   ├── src/
-│   │   ├── pages/         # Page components
-│   │   ├── components/    # React components
-│   │   ├── lib/           # Utilities & API client
-│   │   ├── context/       # React context
-│   │   └── types/         # TypeScript types
-│   ├── package.json
+│   │   ├── pages/           # Page components
+│   │   ├── components/      # Reusable components
+│   │   ├── lib/             # API client, utilities
+│   │   ├── context/         # React context (session, toasts)
+│   │   └── types/           # TypeScript interfaces
 │   ├── vite.config.ts
-│   ├── tailwind.config.js
-│   └── dist/              # Built React app (generated)
-└── uploads/               # Photo storage directory
+│   └── dist/                # Built frontend (served by Flask)
+├── uploads/                 # Photo attachments (back up daily)
+└── inventory.db             # SQLite database (back up daily)
 ```
+
+## Architecture
+
+```
+Users (port 80/443)
+      │
+  nginx / IIS          ← handles HTTPS, security headers, access logs
+      │
+localhost:8081
+      │
+  Waitress / Gunicorn  ← 64 threads (Windows) / 9 workers (Linux)
+      │
+  Flask app            ← routes, business logic, serves React
+      │
+  SQLite (WAL)         ← concurrent reads, serialized writes, ACID
+```
+
+Port 8081 is localhost-only — no firewall rule required.
+
+## Running in Development
+
+```bat
+REM Terminal 1 — backend
+python server.py
+
+REM Terminal 2 — React hot reload
+cd client
+npm run dev
+```
+
+Open `http://localhost:5173` (Vite proxies API to port 8081).
 
 ## Features in Detail
 
 ### Barcode Scanning
-- **Phone Camera**: Click "Scan" button to use device camera (works on mobile)
-- **Bluetooth Scanner**: Zebra scanners appear as keyboard input, press Enter to advance fields
+- **Camera:** Click Scan button — uses device camera (HTTPS required on mobile)
+- **Zebra Scanner:** Bluetooth keyboard mode — scan then press Enter
+
+### SAP Integration
+Imports master data directly from SAP exports (CSV or XLSX):
+- MARA/MAKT — Material master and descriptions
+- MARC — Plant data
+- MBEW — Valuation
+- MARD — Warehouse stock levels
+- MSEG — Material movements
+- LGAP / LGPLO — Storage bins and fixed bin assignments
+- T300T — Storage locations
+- Snapshot — Stock on hand at inventory freeze
 
 ### Photo Management
-- Attach multiple photos to each count
-- Photos stored in `uploads/` directory
-- Automatic file naming with unique identifiers
-
-### Audit Trail
-- Every count creation, modification, and verification is logged
-- Tracks who made changes, when, and what changed
-- Available in Admin > View Audit Log
+- Multiple photos per count
+- Stored in `uploads/` directory
+- UUID-based filenames, original name preserved as metadata
 
 ### Discrepancy Detection
-- Compares counted quantities with SAP snapshots
-- Highlights high-variance items
-- Helps identify potential stock issues
+- Compares counted quantities against SAP snapshots
+- Highlights variance items
+- SLOC-level and material-level breakdown
 
-## API Endpoints
+## Database
 
-### Users
-- `GET /api/users` - List all users
-- `POST /api/users` - Create user
-- `GET /api/users/<username>` - Get user details
+SQLite with WAL mode. 15 migrations auto-applied on startup:
 
-### Sessions
-- `GET /api/sessions` - List sessions
-- `POST /api/sessions` - Create session
-- `GET /api/sessions/<id>` - Get session
-- `POST /api/sessions/<id>/close` - Close session
+| Migration | Purpose |
+|-----------|---------|
+| 001_core | Users, sessions, counts, photos |
+| 002_messages | Counter ↔ office messaging |
+| 003_audit | Audit log |
+| 004_sap_master | Material master (MARA, MARC, MBEW) |
+| 005_snapshot | SAP stock snapshot |
+| 006_nullable_count_message | Message schema fix |
+| 007_wm_bins | WM bin management |
+| 008_add_password | User password column |
+| 009_user_last_active | Activity tracking |
+| 010_sap_ledger_tables | MARD, MSEG, LGAP, MLGT, MLGN, LQUA |
+| 011_count_validation_warnings | Validation warning column |
+| 012_lgplo | Fixed bin assignments |
+| 013_message_threads | Thread-based Q&A |
+| 014_message_reply_to | Reply threading |
+| 015_counts_warnings_index | Validation warnings index |
 
-### Counts
-- `POST /api/sessions/<id>/counts` - Create count
-- `GET /api/sessions/<id>/counts` - List counts
-- `GET /api/counts/<id>` - Get count
-- `PATCH /api/counts/<id>` - Update count
-- `POST /api/counts/<id>/verify` - Verify count
-- `POST /api/counts/<id>/flag` - Flag count
+## Backup
 
-### Photos
-- `POST /api/counts/<id>/photos` - Upload photo
-- `GET /api/counts/<id>/photos` - List photos
-- `DELETE /api/photos/<id>` - Delete photo
-- `GET /photos/<filename>` - View photo
-
-### More
-- Dashboard, materials, WM bins, messages, audit logs, etc.
-
-See `server.py` for complete API documentation.
-
-## Building for Production
-
-```bash
-# Build React
-cd client
-npm run build
-cd ..
-
-# Run Flask with built React
-python3 server.py
+Back up these files daily:
+```bat
+REM Windows — run in Task Scheduler
+powershell -Command "Compress-Archive -Path inventory.db,inventory.db-wal,inventory.db-shm,uploads -DestinationPath backup_%date:~-4,4%%date:~-10,2%%date:~-7,2%.zip -Force"
 ```
 
-Flask will serve the built React app from `/client/dist`.
+**Important:** Always back up `inventory.db`, `inventory.db-wal`, and `inventory.db-shm` together.
 
 ## Troubleshooting
 
 **Port 8081 already in use:**
-```bash
-# On Windows
+```bat
 netstat -ano | findstr :8081
 taskkill /PID <PID> /F
-
-# On Mac/Linux
-lsof -i :8081
-kill -9 <PID>
 ```
+
+**Port 80 already in use (nginx won't start):**
+Close IIS or any other web server, then re-run `setup_nginx_proxy.bat`.
+
+**Camera not working on phone:**
+HTTPS is required. Run `python setup_ssl.py` then `setup_nginx_proxy.bat`.
 
 **Node modules not installing:**
-```bash
+```bat
 cd client
-rm -rf node_modules package-lock.json
+rmdir /s /q node_modules
+del package-lock.json
 npm install
 ```
-
-**React not building:**
-```bash
-cd client
-npm install
-npm run build
-```
-
-## Database
-
-SQLite database automatically migrates on startup. Database file: `inventory.db`
-
-Migrations:
-- `001_core.sql` - Base tables
-- `002_messages.sql` - Messaging
-- `003_audit.sql` - Audit log
-- `004_sap_master.sql` - Material master
-- `005_snapshot.sql` - SAP snapshots
-- `006_nullable_count_message.sql` - Message schema fix
-- `007_wm_bins.sql` - WM bin management
