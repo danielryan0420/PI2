@@ -384,8 +384,14 @@ class Database:
 
     @contextmanager
     def get_connection(self):
-        conn = sqlite3.connect(self.db_path)
+        conn = sqlite3.connect(str(self.db_path), timeout=30.0)
         conn.row_factory = sqlite3.Row
+        conn.isolation_level = None  # Autocommit mode for explicit transaction control
+        conn.execute("PRAGMA journal_mode = WAL")
+        conn.execute("PRAGMA synchronous = NORMAL")
+        conn.execute("PRAGMA cache_size = -64000")
+        conn.execute("PRAGMA temp_store = MEMORY")
+        conn.execute("PRAGMA busy_timeout = 30000")
         conn.execute("PRAGMA foreign_keys = ON")
         try:
             yield conn
@@ -417,19 +423,35 @@ class Database:
 
     def execute(self, query: str, params: tuple = ()) -> None:
         with self.get_connection() as conn:
-            conn.execute(query, params)
-            conn.commit()
+            try:
+                conn.execute("BEGIN IMMEDIATE")
+                conn.execute(query, params)
+                conn.execute("COMMIT")
+            except Exception:
+                conn.execute("ROLLBACK")
+                raise
 
     def execute_many(self, query: str, params: List[tuple]) -> None:
         with self.get_connection() as conn:
-            conn.executemany(query, params)
-            conn.commit()
+            try:
+                conn.execute("BEGIN IMMEDIATE")
+                conn.executemany(query, params)
+                conn.execute("COMMIT")
+            except Exception:
+                conn.execute("ROLLBACK")
+                raise
 
     def insert(self, query: str, params: tuple = ()) -> int:
         with self.get_connection() as conn:
-            cursor = conn.execute(query, params)
-            conn.commit()
-            return cursor.lastrowid
+            try:
+                conn.execute("BEGIN IMMEDIATE")
+                cursor = conn.execute(query, params)
+                lastid = cursor.lastrowid
+                conn.execute("COMMIT")
+                return lastid
+            except Exception:
+                conn.execute("ROLLBACK")
+                raise
 
     def fetch_one(self, query: str, params: tuple = ()) -> Optional[Dict[str, Any]]:
         with self.get_connection() as conn:
