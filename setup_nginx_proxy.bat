@@ -180,7 +180,7 @@ taskkill /F /IM nginx.exe >nul 2>&1
 
 if "%SSL_ENABLED%"=="1" (
     echo Checking if ports 80 and 443 are available...
-    netstat -ano | findstr ":443 " >nul 2>&1
+    netstat -ano | findstr ":443 " | findstr "LISTENING" >nul 2>&1
     if !errorlevel! equ 0 (
         echo.
         echo WARNING: Something is already using port 443.
@@ -190,7 +190,7 @@ if "%SSL_ENABLED%"=="1" (
     )
 ) else (
     echo Checking if port 80 is available...
-    netstat -ano | findstr ":80 " >nul 2>&1
+    netstat -ano | findstr ":80 " | findstr "LISTENING" >nul 2>&1
     if !errorlevel! equ 0 (
         echo.
         echo WARNING: Something is already using port 80.
