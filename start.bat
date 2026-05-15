@@ -34,10 +34,27 @@ if not exist "client\dist\index.html" (
 )
 
 echo Starting app server (port 8081)...
-start "Physical Inventory - App Server" /min python run_production.py
+start "Physical Inventory - App Server" /D "%~dp0" python run_production.py
 
-REM Give the server a moment to bind before nginx tries to proxy it
-timeout /t 3 /nobreak >nul
+REM Wait until the app server is actually listening before starting nginx
+echo Waiting for app server to be ready...
+set /a attempts=0
+:wait_loop
+set /a attempts+=1
+if %attempts% gtr 30 (
+    echo.
+    echo ERROR: App server did not start within 30 seconds.
+    echo Check the "Physical Inventory - App Server" window for errors.
+    pause
+    exit /b 1
+)
+netstat -ano | findstr ":8081 " | findstr "LISTENING" >nul 2>&1
+if errorlevel 1 (
+    timeout /t 1 /nobreak >nul
+    goto wait_loop
+)
+echo App server is ready.
+echo.
 
 echo Starting proxy...
 call setup_nginx_proxy.bat
