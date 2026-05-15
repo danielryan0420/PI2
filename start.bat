@@ -34,7 +34,7 @@ if not exist "client\dist\index.html" (
 )
 
 echo Starting app server (port 8081)...
-start "Physical Inventory - App Server" /D "%~dp0" python run_production.py
+start "Physical Inventory - App Server" /D "%~dp0" cmd /K "conda activate base 2>nul & python run_production.py"
 
 REM Wait until the app server is actually listening before starting nginx
 echo Waiting for app server to be ready...
