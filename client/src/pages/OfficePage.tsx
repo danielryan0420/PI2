@@ -63,7 +63,12 @@ export function OfficePage() {
     finally { setLoadingCounts(false); }
   }, [session?.id, filterSloc, filterStatus, filterUser, filterMat]);
 
-  useEffect(() => { if (session) loadCounts(); }, [loadCounts]);
+  useEffect(() => {
+    if (!session) return;
+    loadCounts();
+    const interval = setInterval(loadCounts, 5000);
+    return () => clearInterval(interval);
+  }, [session, loadCounts]);
 
   async function handleVerify(count: Count) {
     setVerifyLoading(count.id);
