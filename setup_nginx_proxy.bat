@@ -178,28 +178,6 @@ if "%SSL_ENABLED%"=="1" (
 :: Stop any existing nginx
 taskkill /F /IM nginx.exe >nul 2>&1
 
-if "%SSL_ENABLED%"=="1" (
-    echo Checking if ports 80 and 443 are available...
-    netstat -ano | findstr ":443 " | findstr "LISTENING" >nul 2>&1
-    if !errorlevel! equ 0 (
-        echo.
-        echo WARNING: Something is already using port 443.
-        echo          Close IIS or any other web server first.
-        pause
-        exit /b 1
-    )
-) else (
-    echo Checking if port 80 is available...
-    netstat -ano | findstr ":80 " | findstr "LISTENING" >nul 2>&1
-    if !errorlevel! equ 0 (
-        echo.
-        echo WARNING: Something is already using port 80.
-        echo          Close IIS or any other web server first.
-        pause
-        exit /b 1
-    )
-)
-
 echo Starting nginx...
 cd /d "%~dp0nginx"
 start /B nginx.exe
