@@ -141,6 +141,14 @@ class CountService:
         )
         AuditService.log_event(count_id, editor_username, 'flag', None, None, None, reason)
 
+    @staticmethod
+    def delete_count(count_id: int, editor_username: str) -> None:
+        AuditService.log_event(count_id, editor_username, 'delete', None, None, None, 'Record deleted by admin')
+        db.execute("DELETE FROM audit_log WHERE count_id = ?", (count_id,))
+        db.execute("DELETE FROM photos WHERE count_id = ?", (count_id,))
+        db.execute("DELETE FROM messages WHERE count_id = ?", (count_id,))
+        db.execute("DELETE FROM counts WHERE id = ?", (count_id,))
+
 
 class PhotoService:
     @staticmethod

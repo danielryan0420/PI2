@@ -293,6 +293,18 @@ def flag_count(count_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
+@app.delete('/api/counts/<int:count_id>')
+def delete_count(count_id):
+    editor_username = request.headers.get('x-username') or ''
+    count = CountService.get_count(count_id)
+    if not count:
+        return jsonify({'error': 'Count not found'}), 404
+    try:
+        CountService.delete_count(count_id, editor_username)
+        return jsonify({'deleted': count_id}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
 # ===== PHOTOS =====
 @app.post('/api/counts/<int:count_id>/photos')
 def upload_photo(count_id):

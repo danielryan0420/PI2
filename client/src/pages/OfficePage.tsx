@@ -42,6 +42,8 @@ export function OfficePage() {
   const [editChanges, setEditChanges] = useState<Partial<Count>>({});
   const [editReason, setEditReason] = useState('');
   const [editLoading, setEditLoading] = useState(false);
+  const [deleteCountTarget, setDeleteCountTarget] = useState<Count | null>(null);
+  const [deleteCountLoading, setDeleteCountLoading] = useState(false);
   const [flagTarget, setFlagTarget] = useState<Count | null>(null);
   const [flagReason, setFlagReason] = useState('');
   const [verifyLoading, setVerifyLoading] = useState<number | null>(null);
@@ -96,6 +98,19 @@ export function OfficePage() {
       loadCounts();
     } catch (e) { toast(e instanceof Error ? e.message : 'Failed', 'error'); }
     finally { setEditLoading(false); }
+  }
+
+  async function handleDeleteCount() {
+    if (!deleteCountTarget) return;
+    setDeleteCountLoading(true);
+    try {
+      await api.delete(`/counts/${deleteCountTarget.id}`, headers);
+      toast(`Count #${deleteCountTarget.id} deleted`, 'success');
+      setDeleteCountTarget(null);
+      setEditTarget(null);
+      loadCounts();
+    } catch (e) { toast(e instanceof Error ? e.message : 'Failed to delete', 'error'); }
+    finally { setDeleteCountLoading(false); }
   }
 
   // ─── Messages tab state ───────────────────────────────────────────────────
@@ -415,9 +430,12 @@ export function OfficePage() {
             <Input label="New WM Bin" placeholder={editTarget.wm_bin ?? ''} onChange={(e) => setEditChanges((prev) => ({ ...prev, wm_bin: e.target.value }))} />
             <Input label="New ZBIN" placeholder={editTarget.zbin ?? ''} onChange={(e) => setEditChanges((prev) => ({ ...prev, zbin: e.target.value }))} />
             <Textarea label="Reason for edit" required value={editReason} onChange={(e) => setEditReason(e.target.value)} placeholder="Explain why this count is being edited…" rows={3} />
-            <div className="flex gap-2 justify-end">
-              <Button variant="secondary" onClick={() => setEditTarget(null)}>Cancel</Button>
-              <Button onClick={handleEdit} loading={editLoading}>Save Edit</Button>
+            <div className="flex gap-2 justify-between">
+              <Button variant="danger" onClick={() => setDeleteCountTarget(editTarget)}>Delete Record</Button>
+              <div className="flex gap-2">
+                <Button variant="secondary" onClick={() => setEditTarget(null)}>Cancel</Button>
+                <Button onClick={handleEdit} loading={editLoading}>Save Edit</Button>
+              </div>
             </div>
           </div>
         )}
@@ -446,6 +464,17 @@ export function OfficePage() {
         confirmLabel="Delete"
         confirmVariant="danger"
         loading={deleting}
+      />
+
+      <ConfirmDialog
+        open={!!deleteCountTarget}
+        onClose={() => setDeleteCountTarget(null)}
+        onConfirm={handleDeleteCount}
+        title={`Delete Count #${deleteCountTarget?.id}?`}
+        message={`This will permanently delete the count for ${deleteCountTarget?.material_number ?? ''} (qty ${deleteCountTarget?.quantity ?? ''}) submitted by ${deleteCountTarget?.username ?? ''}. This cannot be undone.`}
+        confirmLabel="Delete Record"
+        confirmVariant="danger"
+        loading={deleteCountLoading}
       />
     </AppShell>
   );
