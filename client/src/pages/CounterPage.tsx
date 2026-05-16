@@ -13,7 +13,7 @@ export function CounterPage() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<'count' | 'messages'>('count');
   const [unreadReplies, setUnreadReplies] = useState(0);
-  const [recountPrefill, setRecountPrefill] = useState<{ material_number?: string; sloc?: string; wm_bin?: string | null; zbin?: string | null } | undefined>(undefined);
+  const [recountPrefill, setRecountPrefill] = useState<{ original_count_id?: number; material_number?: string; sloc?: string; wm_bin?: string | null; zbin?: string | null } | undefined>(undefined);
 
   useEffect(() => {
     if (!session) return;
@@ -26,7 +26,9 @@ export function CounterPage() {
 
   function handleSubmitted(count: Count) {
     setCounts((prev) => {
-      if (prev.find((c) => c.id === count.id)) return prev;
+      if (prev.find((c) => c.id === count.id)) {
+        return prev.map((c) => c.id === count.id ? count : c);
+      }
       return [count, ...prev];
     });
   }
@@ -38,6 +40,7 @@ export function CounterPage() {
 
   function handleRecount(count: Count) {
     setRecountPrefill({
+      original_count_id: count.id,
       material_number: count.material_number,
       sloc: count.sloc,
       wm_bin: count.wm_bin,

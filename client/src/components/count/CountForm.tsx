@@ -10,7 +10,7 @@ import type { Count, SlocConfig } from '../../types';
 
 interface CountFormProps {
   onSubmitted: (count: Count) => void;
-  prefill?: { material_number?: string; sloc?: string; wm_bin?: string | null; zbin?: string | null };
+  prefill?: { original_count_id?: number; material_number?: string; sloc?: string; wm_bin?: string | null; zbin?: string | null };
   onPrefillConsumed?: () => void;
 }
 
@@ -31,6 +31,7 @@ export function CountForm({ onSubmitted, prefill, onPrefillConsumed }: CountForm
   const [materialDesc, setMaterialDesc] = useState<string | null>(null);
   const [scanTarget, setScanTarget] = useState<ScanTarget | null>(null);
   const [recountBanner, setRecountBanner] = useState(false);
+  const [originalCountId, setOriginalCountId] = useState<number | null>(null);
   const [materialWarning, setMaterialWarning] = useState<string | null>(null);
   const [binWarning, setBinWarning] = useState<string | null>(null);
   const [fixedBinWarning, setFixedBinWarning] = useState<string | null>(null);
@@ -67,6 +68,7 @@ export function CountForm({ onSubmitted, prefill, onPrefillConsumed }: CountForm
   // Apply prefill when provided (recount)
   useEffect(() => {
     if (!prefill) return;
+    setOriginalCountId(prefill.original_count_id ?? null);
     setMaterialNumber(prefill.material_number ?? '');
     setSloc(prefill.sloc ?? '');
     setWmBin(prefill.wm_bin ?? '');
@@ -216,19 +218,32 @@ export function CountForm({ onSubmitted, prefill, onPrefillConsumed }: CountForm
       if (binWarning) warnings.push('wm_bin_not_found');
       if (fixedBinWarning) warnings.push('fixed_bin_mismatch');
 
-      const count = await api.post<Count>(`/sessions/${session.id}/counts`, {
-        username,
-        material_number: materialNumber.trim().toUpperCase(),
-        quantity: Number(quantity),
-        sloc,
-        wm_bin: needsWmBin ? wmBin.trim().toUpperCase() : undefined,
-        zbin: needsZbin ? zbin.trim().toUpperCase() : undefined,
-        validation_warnings: warnings.length > 0 ? JSON.stringify(warnings) : undefined,
-      });
+      let count: Count;
+      if (originalCountId) {
+        // Recount: update the existing flagged record instead of creating a new one
+        count = await api.patch<Count>(`/counts/${originalCountId}`, {
+          quantity: Number(quantity),
+          status: 'pending',
+          editor_username: username,
+          reason: 'Recount submitted',
+        }, { username, role });
+        setOriginalCountId(null);
+        setRecountBanner(false);
+      } else {
+        count = await api.post<Count>(`/sessions/${session.id}/counts`, {
+          username,
+          material_number: materialNumber.trim().toUpperCase(),
+          quantity: Number(quantity),
+          sloc,
+          wm_bin: needsWmBin ? wmBin.trim().toUpperCase() : undefined,
+          zbin: needsZbin ? zbin.trim().toUpperCase() : undefined,
+          validation_warnings: warnings.length > 0 ? JSON.stringify(warnings) : undefined,
+        });
+      }
 
-      // Send question if one was entered
+      // Send question as a thread so it shows up in the office dashboard
       if (question.trim()) {
-        await api.post(`/counts/${count.id}/messages`, { sender: username, role, body: question.trim() });
+        await api.post(`/sessions/${session.id}/threads`, { title: question.trim(), count_id: count.id }, { username, role });
         setQuestion('');
       }
 
