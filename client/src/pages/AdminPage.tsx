@@ -441,22 +441,91 @@ const tabs: { key: Tab; label: string }[] = [
             </Card>
 
             <Card>
-              <CardHeader><h3 className="font-semibold text-gray-700 text-sm">LGPLO (Fixed Bin Assignments)</h3></CardHeader>
+              <CardHeader><h3 className="font-semibold text-gray-700 text-sm">EKKO (PO Headers)</h3></CardHeader>
               <CardBody className="flex flex-col gap-2">
-                {importStatus['sap_lgplo'] ? (
+                {importStatus['sap_ekko'] ? (
                   <div className="bg-blue-50 rounded px-2 py-1">
-                    <p className="text-xs font-medium text-blue-900">📊 Records: <span className="font-bold">{importStatus['sap_lgplo'].count.toLocaleString()}</span></p>
-                    <p className="text-xs text-blue-700">⏰ Last: {importStatus['sap_lgplo'].updated_at ? formatDateTime(importStatus['sap_lgplo'].updated_at!) : 'Never'}</p>
+                    <p className="text-xs font-medium text-blue-900">📊 Records: <span className="font-bold">{importStatus['sap_ekko'].count.toLocaleString()}</span></p>
+                    <p className="text-xs text-blue-700">⏰ Last: {importStatus['sap_ekko'].updated_at ? formatDateTime(importStatus['sap_ekko'].updated_at!) : 'Never'}</p>
                   </div>
                 ) : (
                   <div className="bg-gray-50 rounded px-2 py-1 text-xs text-gray-600">No data loaded yet</div>
                 )}
-                <p className="text-xs text-gray-500">Fixed bin assignments from MM02 WM2 tab. Validates material is counted into its correct storage-type-100 bin. Columns: MATNR, LGNUM, LGTYP, LGPLA.</p>
-                <label className={`inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-lg border border-dashed border-gray-400 cursor-pointer text-sm text-gray-600 hover:bg-gray-50 ${importing === 'lgplo' ? 'opacity-50 pointer-events-none' : ''}`}>
-                  {importing === 'lgplo' ? '⟳ Importing…' : '↑ Upload LGPLO CSV or XLSX'}
+                <p className="text-xs text-gray-500">Purchase order headers (EKKO). Key columns: EBELN, BSTYP, BSART, LIFNR, EKGRP, BEDAT. Any additional columns are stored automatically.</p>
+                <label className={`inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-lg border border-dashed border-gray-400 cursor-pointer text-sm text-gray-600 hover:bg-gray-50 ${importing === 'ekko' ? 'opacity-50 pointer-events-none' : ''}`}>
+                  {importing === 'ekko' ? '⟳ Importing…' : '↑ Upload EKKO CSV or XLSX'}
                   <input type="file" accept=".csv,.xlsx,.xls,.txt" className="hidden" onChange={(e) => {
                     const file = e.target.files?.[0];
-                    if (file) handleImport('lgplo', '/imports/lgplo', file);
+                    if (file) handleImport('ekko', '/imports/ekko', file);
+                    e.target.value = '';
+                  }} />
+                </label>
+              </CardBody>
+            </Card>
+
+            <Card>
+              <CardHeader><h3 className="font-semibold text-gray-700 text-sm">EKPO (PO Line Items)</h3></CardHeader>
+              <CardBody className="flex flex-col gap-2">
+                {importStatus['sap_ekpo'] ? (
+                  <div className="bg-blue-50 rounded px-2 py-1">
+                    <p className="text-xs font-medium text-blue-900">📊 Records: <span className="font-bold">{importStatus['sap_ekpo'].count.toLocaleString()}</span></p>
+                    <p className="text-xs text-blue-700">⏰ Last: {importStatus['sap_ekpo'].updated_at ? formatDateTime(importStatus['sap_ekpo'].updated_at!) : 'Never'}</p>
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 rounded px-2 py-1 text-xs text-gray-600">No data loaded yet</div>
+                )}
+                <p className="text-xs text-gray-500">Purchase order line items (EKPO). Key columns: EBELN, EBELP, MATNR, MENGE, MEINS, WERKS, LGORT, ELIKZ. Paired with MSEG to detect open PO quantities.</p>
+                <label className={`inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-lg border border-dashed border-gray-400 cursor-pointer text-sm text-gray-600 hover:bg-gray-50 ${importing === 'ekpo' ? 'opacity-50 pointer-events-none' : ''}`}>
+                  {importing === 'ekpo' ? '⟳ Importing…' : '↑ Upload EKPO CSV or XLSX'}
+                  <input type="file" accept=".csv,.xlsx,.xls,.txt" className="hidden" onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleImport('ekpo', '/imports/ekpo', file);
+                    e.target.value = '';
+                  }} />
+                </label>
+              </CardBody>
+            </Card>
+
+            <Card>
+              <CardHeader><h3 className="font-semibold text-gray-700 text-sm">AUFK (Production / Process Orders)</h3></CardHeader>
+              <CardBody className="flex flex-col gap-2">
+                {importStatus['sap_aufk'] ? (
+                  <div className="bg-blue-50 rounded px-2 py-1">
+                    <p className="text-xs font-medium text-blue-900">📊 Records: <span className="font-bold">{importStatus['sap_aufk'].count.toLocaleString()}</span></p>
+                    <p className="text-xs text-blue-700">⏰ Last: {importStatus['sap_aufk'].updated_at ? formatDateTime(importStatus['sap_aufk'].updated_at!) : 'Never'}</p>
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 rounded px-2 py-1 text-xs text-gray-600">No data loaded yet</div>
+                )}
+                <p className="text-xs text-gray-500">Production/process orders (AUFK + AFKO). Key columns: AUFNR, AUART, MATNR, GAMNG, WEMNG, SYSST, WERKS, LGORT. Export from CO03 or use a custom report.</p>
+                <label className={`inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-lg border border-dashed border-gray-400 cursor-pointer text-sm text-gray-600 hover:bg-gray-50 ${importing === 'aufk' ? 'opacity-50 pointer-events-none' : ''}`}>
+                  {importing === 'aufk' ? '⟳ Importing…' : '↑ Upload AUFK CSV or XLSX'}
+                  <input type="file" accept=".csv,.xlsx,.xls,.txt" className="hidden" onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleImport('aufk', '/imports/aufk', file);
+                    e.target.value = '';
+                  }} />
+                </label>
+              </CardBody>
+            </Card>
+
+            <Card>
+              <CardHeader><h3 className="font-semibold text-gray-700 text-sm">RESB (Reservations)</h3></CardHeader>
+              <CardBody className="flex flex-col gap-2">
+                {importStatus['sap_resb'] ? (
+                  <div className="bg-blue-50 rounded px-2 py-1">
+                    <p className="text-xs font-medium text-blue-900">📊 Records: <span className="font-bold">{importStatus['sap_resb'].count.toLocaleString()}</span></p>
+                    <p className="text-xs text-blue-700">⏰ Last: {importStatus['sap_resb'].updated_at ? formatDateTime(importStatus['sap_resb'].updated_at!) : 'Never'}</p>
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 rounded px-2 py-1 text-xs text-gray-600">No data loaded yet</div>
+                )}
+                <p className="text-xs text-gray-500">Open reservations and dependent requirements (RESB). Key columns: RSNUM, RSPOS, MATNR, BDMNG, ENMNG, AUFNR, KZEAR. Export from MB25 or MB21.</p>
+                <label className={`inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-lg border border-dashed border-gray-400 cursor-pointer text-sm text-gray-600 hover:bg-gray-50 ${importing === 'resb' ? 'opacity-50 pointer-events-none' : ''}`}>
+                  {importing === 'resb' ? '⟳ Importing…' : '↑ Upload RESB CSV or XLSX'}
+                  <input type="file" accept=".csv,.xlsx,.xls,.txt" className="hidden" onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleImport('resb', '/imports/resb', file);
                     e.target.value = '';
                   }} />
                 </label>

@@ -35,6 +35,7 @@ export function CountForm({ onSubmitted, prefill, onPrefillConsumed }: CountForm
   const [materialWarning, setMaterialWarning] = useState<string | null>(null);
   const [binWarning, setBinWarning] = useState<string | null>(null);
   const [fixedBinWarning, setFixedBinWarning] = useState<string | null>(null);
+  const [openOrderWarnings, setOpenOrderWarnings] = useState<string[]>([]);
 
   const materialRef = useRef<HTMLInputElement>(null);
   const quantityRef = useRef<HTMLInputElement>(null);
@@ -85,7 +86,7 @@ export function CountForm({ onSubmitted, prefill, onPrefillConsumed }: CountForm
 
   // Lookup material description and validate existence when material number changes
   useEffect(() => {
-    if (materialNumber.trim().length < 3) { setMaterialDesc(null); setMaterialWarning(null); return; }
+    if (materialNumber.trim().length < 3) { setMaterialDesc(null); setMaterialWarning(null); setOpenOrderWarnings([]); return; }
     const timer = setTimeout(async () => {
       try {
         const matRes = await fetch(`/api/materials/${encodeURIComponent(materialNumber)}`);
@@ -94,12 +95,38 @@ export function CountForm({ onSubmitted, prefill, onPrefillConsumed }: CountForm
           setMaterialDesc(m.description ?? null);
           setMaterialWarning(null);
         } else {
-          // Material not found in MARA
           setMaterialDesc(null);
           setMaterialWarning(`⚠️ Material ${materialNumber.toUpperCase()} not in Master Data. You can still submit, admin will be notified.`);
         }
       } catch { setMaterialDesc(null); setMaterialWarning(null); }
-    }, 400);
+
+      // Check for open POs, production orders, and reservations
+      try {
+        const ordRes = await fetch(`/api/validate/open-orders?material=${encodeURIComponent(materialNumber.trim())}`);
+        if (ordRes.ok) {
+          const ord = await ordRes.json() as {
+            has_open_pos: boolean; has_open_orders: boolean; has_open_reservations: boolean;
+            open_pos: Array<{ebeln: string; open_qty: number; meins: string}>;
+            open_orders: Array<{aufnr: string; open_qty: number; gmein: string; sysst: string}>;
+            open_reservations: Array<{rsnum: string; remaining_qty: number; aufnr: string; ebeln: string}>;
+          };
+          const warns: string[] = [];
+          if (ord.has_open_pos) {
+            const total = ord.open_pos.reduce((s, p) => s + p.open_qty, 0);
+            warns.push(`⚠ Open PO: ${ord.open_pos.length} purchase order(s) with ${total.toFixed(0)} units not yet received. Verify stock is not already in transit before counting.`);
+          }
+          if (ord.has_open_orders) {
+            const total = ord.open_orders.reduce((s, o) => s + o.open_qty, 0);
+            warns.push(`⚠ Open Production/Process Order: ${ord.open_orders.length} order(s) with ${total.toFixed(0)} units not yet delivered. Stock may change before physical inventory is posted.`);
+          }
+          if (ord.has_open_reservations) {
+            const total = ord.open_reservations.reduce((s, r) => s + r.remaining_qty, 0);
+            warns.push(`⚠ Open Reservation: ${ord.open_reservations.length} reservation(s) require ${total.toFixed(0)} units to be issued. Confirm this stock should be counted as on-hand.`);
+          }
+          setOpenOrderWarnings(warns);
+        }
+      } catch { setOpenOrderWarnings([]); }
+    }, 600);
     return () => clearTimeout(timer);
   }, [materialNumber, session?.id]);
 
@@ -261,6 +288,7 @@ export function CountForm({ onSubmitted, prefill, onPrefillConsumed }: CountForm
       setMaterialWarning(null);
       setBinWarning(null);
       setFixedBinWarning(null);
+      setOpenOrderWarnings([]);
       localStorage.setItem('countFormState', JSON.stringify({
         materialNumber: '', quantity: '', sloc, wmBin: '', zbin: '', question: ''
       }));
@@ -320,6 +348,13 @@ export function CountForm({ onSubmitted, prefill, onPrefillConsumed }: CountForm
         )}
         {materialDesc && !materialWarning && (
           <p className="text-xs text-gray-500 mt-0.5 ml-1">{materialDesc}</p>
+        )}
+        {openOrderWarnings.length > 0 && (
+          <div className="mt-1 flex flex-col gap-1">
+            {openOrderWarnings.map((w, i) => (
+              <p key={i} className="text-xs text-amber-800 bg-amber-50 border border-amber-200 px-2 py-1.5 rounded">{w}</p>
+            ))}
+          </div>
         )}
       </div>
 

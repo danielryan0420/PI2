@@ -30,7 +30,23 @@ interface ProblemMaterial {
   movement_types: string;
 }
 
-type DashTab = 'overview' | 'materials' | 'variance' | 'problems' | 'audit';
+type DashTab = 'overview' | 'materials' | 'variance' | 'problems' | 'audit' | 'over-snapshot' | 'wm-discrepancies' | 'reservations';
+
+interface OverSnapshotRow {
+  material_number: string; sloc: string; snapshot_qty: number; mard_qty: number;
+  counted_qty: number; variance: number; description: string | null; uom: string | null;
+  standard_price: number | null; moving_avg_price: number | null;
+  open_reservation_count: number; open_po_count: number; open_order_count: number;
+}
+interface WmDiscrepancyRow {
+  material_number: string; counted_bin: string; sloc: string; counted_qty: number;
+  description: string | null; lqua_available: number; lqua_total: number;
+  lgtyp: string | null; discrepancy: number;
+}
+interface ReservationWarningRow {
+  material_number: string; sloc: string; snapshot_qty: number; counted_qty: number;
+  shortage: number; description: string | null; reservations: string | null; total_reserved_qty: number;
+}
 
 type SortField = 'material_number' | 'sloc' | 'sap_quantity' | 'counted_qty' | 'variance' | 'total_value' | 'derived_status';
 type SortDir = 'asc' | 'desc';
@@ -47,6 +63,9 @@ export function DashboardPage() {
   const [variance, setVariance] = useState<VarianceRow[]>([]);
   const [audit, setAudit] = useState<AuditEntry[]>([]);
   const [problems, setProblems] = useState<ProblemMaterial[]>([]);
+  const [overSnapshot, setOverSnapshot] = useState<OverSnapshotRow[]>([]);
+  const [wmDiscrepancies, setWmDiscrepancies] = useState<WmDiscrepancyRow[]>([]);
+  const [reservationWarnings, setReservationWarnings] = useState<ReservationWarningRow[]>([]);
 
   // ─ ui state ─
   const [activeTab, setActiveTab] = useState<DashTab>('overview');
@@ -111,8 +130,33 @@ export function DashboardPage() {
     }
   }, []);
 
+  const loadOverSnapshot = useCallback(async () => {
+    if (!session) return;
+    try {
+      const data = await api.get<OverSnapshotRow[]>(`/sessions/${session.id}/counts-over-snapshot`, headers);
+      setOverSnapshot(data);
+    } catch (e) { console.error('Over-snapshot load error:', e); }
+  }, [session?.id]);
+
+  const loadWmDiscrepancies = useCallback(async () => {
+    if (!session) return;
+    try {
+      const data = await api.get<WmDiscrepancyRow[]>(`/sessions/${session.id}/wm-discrepancies`, headers);
+      setWmDiscrepancies(data);
+    } catch (e) { console.error('WM discrepancies load error:', e); }
+  }, [session?.id]);
+
+  const loadReservationWarnings = useCallback(async () => {
+    if (!session) return;
+    try {
+      const data = await api.get<ReservationWarningRow[]>(`/sessions/${session.id}/reservation-warnings`, headers);
+      setReservationWarnings(data);
+    } catch (e) { console.error('Reservation warnings load error:', e); }
+  }, [session?.id]);
+
   const loadAll = useCallback(async () => {
-    await Promise.all([loadSummary(), loadMaterials(), loadVariance(), loadAudit(), loadProblems()]);
+    await Promise.all([loadSummary(), loadMaterials(), loadVariance(), loadAudit(), loadProblems(),
+                       loadOverSnapshot(), loadWmDiscrepancies(), loadReservationWarnings()]);
     setLastUpdated(new Date());
     setSecondsAgo(0);
     setLoading(false);
@@ -202,11 +246,14 @@ export function DashboardPage() {
     );
   }
 
-  const TABS: { id: DashTab; label: string }[] = [
+  const TABS: { id: DashTab; label: string; badge?: number }[] = [
     { id: 'overview', label: 'Overview' },
     { id: 'materials', label: 'Materials' },
     { id: 'variance', label: 'Variance' },
     { id: 'problems', label: 'Problem Materials' },
+    { id: 'over-snapshot', label: 'Over Snapshot', badge: overSnapshot.length || undefined },
+    { id: 'wm-discrepancies', label: 'WM Discrepancies', badge: wmDiscrepancies.length || undefined },
+    { id: 'reservations', label: 'Reservations', badge: reservationWarnings.length || undefined },
     { id: 'audit', label: 'Audit Log' },
   ];
 
@@ -263,6 +310,11 @@ export function DashboardPage() {
                     {stats.unread_messages > 9 ? '9+' : stats.unread_messages}
                   </span>
                 ) : null}
+                {tab.badge ? (
+                  <span className="ml-1.5 inline-flex items-center justify-center px-1.5 h-4 rounded-full bg-red-500 text-white text-[10px] font-bold">
+                    {tab.badge}
+                  </span>
+                ) : null}
               </button>
             ))}
           </nav>
@@ -296,6 +348,15 @@ export function DashboardPage() {
               )}
               {activeTab === 'problems' && (
                 <ProblemsTab problems={problems} />
+              )}
+              {activeTab === 'over-snapshot' && (
+                <OverSnapshotTab rows={overSnapshot} />
+              )}
+              {activeTab === 'wm-discrepancies' && (
+                <WmDiscrepanciesTab rows={wmDiscrepancies} />
+              )}
+              {activeTab === 'reservations' && (
+                <ReservationWarningsTab rows={reservationWarnings} />
               )}
               {activeTab === 'audit' && (
                 <AuditLog audit={audit} />
@@ -1349,6 +1410,154 @@ function EmptyState({
     <div className="flex flex-col items-center gap-2 py-4">
       <span className={`text-3xl ${iconColor}`}>{icon}</span>
       <p className="text-sm text-gray-400 max-w-sm text-center">{message}</p>
+    </div>
+  );
+}
+
+// ─── Over Snapshot Tab ────────────────────────────────────────────────────────
+function OverSnapshotTab({ rows }: { rows: OverSnapshotRow[] }) {
+  if (rows.length === 0) {
+    return <EmptyState icon="✓" iconColor="text-green-400" message="No counts exceed the snapshot. All counted quantities are at or below the frozen SAP stock level." />;
+  }
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800">
+        <strong>{rows.length} material{rows.length !== 1 ? 's' : ''}</strong> counted above the snapshot quantity.
+        Before posting, verify against open POs, production orders, and in-transit stock.
+      </div>
+      <div className="overflow-x-auto rounded-lg border border-gray-200">
+        <table className="w-full text-xs">
+          <thead className="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th className="text-left px-3 py-2 font-semibold text-gray-600">Material</th>
+              <th className="text-left px-3 py-2 font-semibold text-gray-600">Description</th>
+              <th className="text-left px-3 py-2 font-semibold text-gray-600">SLOC</th>
+              <th className="text-right px-3 py-2 font-semibold text-gray-600">Snapshot</th>
+              <th className="text-right px-3 py-2 font-semibold text-gray-600">MARD Stock</th>
+              <th className="text-right px-3 py-2 font-semibold text-gray-600">Counted</th>
+              <th className="text-right px-3 py-2 font-semibold text-gray-600">Over By</th>
+              <th className="text-center px-3 py-2 font-semibold text-gray-600">Open POs</th>
+              <th className="text-center px-3 py-2 font-semibold text-gray-600">Open Orders</th>
+              <th className="text-center px-3 py-2 font-semibold text-gray-600">Reservations</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {rows.map((r, i) => (
+              <tr key={i} className="hover:bg-amber-50/50">
+                <td className="px-3 py-2 font-mono font-medium text-gray-900">{r.material_number}</td>
+                <td className="px-3 py-2 text-gray-600 max-w-[180px] truncate">{r.description ?? '—'}</td>
+                <td className="px-3 py-2 text-gray-600">{r.sloc}</td>
+                <td className="px-3 py-2 text-right text-gray-700">{r.snapshot_qty.toFixed(2)} <span className="text-gray-400">{r.uom}</span></td>
+                <td className="px-3 py-2 text-right text-gray-700">{r.mard_qty.toFixed(2)}</td>
+                <td className="px-3 py-2 text-right font-semibold text-gray-900">{r.counted_qty.toFixed(2)}</td>
+                <td className="px-3 py-2 text-right font-bold text-amber-700">+{r.variance.toFixed(2)}</td>
+                <td className="px-3 py-2 text-center">
+                  {r.open_po_count > 0 ? <span className="text-amber-700 font-semibold">{r.open_po_count}</span> : <span className="text-gray-300">—</span>}
+                </td>
+                <td className="px-3 py-2 text-center">
+                  {r.open_order_count > 0 ? <span className="text-amber-700 font-semibold">{r.open_order_count}</span> : <span className="text-gray-300">—</span>}
+                </td>
+                <td className="px-3 py-2 text-center">
+                  {r.open_reservation_count > 0 ? <span className="text-red-600 font-semibold">{r.open_reservation_count}</span> : <span className="text-gray-300">—</span>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ─── WM Discrepancies Tab ─────────────────────────────────────────────────────
+function WmDiscrepanciesTab({ rows }: { rows: WmDiscrepancyRow[] }) {
+  if (rows.length === 0) {
+    return <EmptyState icon="✓" iconColor="text-green-400" message="No WM discrepancies found. Counted bin quantities match LQUA records, or LQUA data has not been loaded." />;
+  }
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-800">
+        <strong>{rows.length} bin{rows.length !== 1 ? 's' : ''}</strong> with discrepancies between counted quantity and LQUA available stock.
+        These materials may be in the wrong location or have unboooked movements.
+      </div>
+      <div className="overflow-x-auto rounded-lg border border-gray-200">
+        <table className="w-full text-xs">
+          <thead className="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th className="text-left px-3 py-2 font-semibold text-gray-600">Material</th>
+              <th className="text-left px-3 py-2 font-semibold text-gray-600">Description</th>
+              <th className="text-left px-3 py-2 font-semibold text-gray-600">Bin</th>
+              <th className="text-left px-3 py-2 font-semibold text-gray-600">Type</th>
+              <th className="text-left px-3 py-2 font-semibold text-gray-600">SLOC</th>
+              <th className="text-right px-3 py-2 font-semibold text-gray-600">LQUA Available</th>
+              <th className="text-right px-3 py-2 font-semibold text-gray-600">Counted</th>
+              <th className="text-right px-3 py-2 font-semibold text-gray-600">Difference</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {rows.map((r, i) => (
+              <tr key={i} className="hover:bg-red-50/30">
+                <td className="px-3 py-2 font-mono font-medium text-gray-900">{r.material_number}</td>
+                <td className="px-3 py-2 text-gray-600 max-w-[160px] truncate">{r.description ?? '—'}</td>
+                <td className="px-3 py-2 font-mono text-gray-700">{r.counted_bin}</td>
+                <td className="px-3 py-2 text-gray-500">{r.lgtyp ?? '—'}</td>
+                <td className="px-3 py-2 text-gray-600">{r.sloc}</td>
+                <td className="px-3 py-2 text-right text-gray-700">{r.lqua_available.toFixed(2)}</td>
+                <td className="px-3 py-2 text-right font-semibold text-gray-900">{r.counted_qty.toFixed(2)}</td>
+                <td className={`px-3 py-2 text-right font-bold ${r.discrepancy > 0 ? 'text-red-600' : 'text-gray-500'}`}>
+                  {r.lqua_available === 0 && r.counted_qty > 0 ? 'Not in LQUA' : `${r.counted_qty > r.lqua_available ? '+' : ''}${(r.counted_qty - r.lqua_available).toFixed(2)}`}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ─── Reservation Warnings Tab ─────────────────────────────────────────────────
+function ReservationWarningsTab({ rows }: { rows: ReservationWarningRow[] }) {
+  if (rows.length === 0) {
+    return <EmptyState icon="✓" iconColor="text-green-400" message="No reservation conflicts. Either no open reservations exist for short-counted materials, or RESB data has not been loaded." />;
+  }
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-800">
+        <strong>{rows.length} material{rows.length !== 1 ? 's' : ''}</strong> counted below snapshot with open reservations.
+        Adjusting stock out may prevent production orders or STOs from being fulfilled.
+        Confirm these materials need to be issued to open orders before posting adjustments.
+      </div>
+      <div className="overflow-x-auto rounded-lg border border-gray-200">
+        <table className="w-full text-xs">
+          <thead className="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th className="text-left px-3 py-2 font-semibold text-gray-600">Material</th>
+              <th className="text-left px-3 py-2 font-semibold text-gray-600">Description</th>
+              <th className="text-left px-3 py-2 font-semibold text-gray-600">SLOC</th>
+              <th className="text-right px-3 py-2 font-semibold text-gray-600">Snapshot</th>
+              <th className="text-right px-3 py-2 font-semibold text-gray-600">Counted</th>
+              <th className="text-right px-3 py-2 font-semibold text-gray-600">Shortage</th>
+              <th className="text-right px-3 py-2 font-semibold text-gray-600">Reserved Qty</th>
+              <th className="text-left px-3 py-2 font-semibold text-gray-600">Reservations</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {rows.map((r, i) => (
+              <tr key={i} className="hover:bg-red-50/30">
+                <td className="px-3 py-2 font-mono font-medium text-gray-900">{r.material_number}</td>
+                <td className="px-3 py-2 text-gray-600 max-w-[160px] truncate">{r.description ?? '—'}</td>
+                <td className="px-3 py-2 text-gray-600">{r.sloc}</td>
+                <td className="px-3 py-2 text-right text-gray-700">{r.snapshot_qty.toFixed(2)}</td>
+                <td className="px-3 py-2 text-right font-semibold text-gray-900">{r.counted_qty.toFixed(2)}</td>
+                <td className="px-3 py-2 text-right font-bold text-red-700">{r.shortage.toFixed(2)}</td>
+                <td className="px-3 py-2 text-right font-bold text-amber-700">{(r.total_reserved_qty ?? 0).toFixed(2)}</td>
+                <td className="px-3 py-2 text-gray-500 text-[10px] max-w-[200px] truncate">{r.reservations ?? '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

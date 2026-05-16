@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Optional, Any
@@ -536,6 +537,10 @@ class ImportService:
             'sap_lgap': ('SELECT COUNT(*) as count, MAX(uploaded_at) as uploaded_at FROM sap_lgap', 'uploaded_at'),
             'sap_mseg': ('SELECT COUNT(*) as count, MAX(uploaded_at) as uploaded_at FROM sap_mseg', 'uploaded_at'),
             'sap_lgplo': ('SELECT COUNT(*) as count, MAX(uploaded_at) as uploaded_at FROM sap_lgplo', 'uploaded_at'),
+            'sap_ekko': ('SELECT COUNT(*) as count, MAX(uploaded_at) as uploaded_at FROM sap_ekko', 'uploaded_at'),
+            'sap_ekpo': ('SELECT COUNT(*) as count, MAX(uploaded_at) as uploaded_at FROM sap_ekpo', 'uploaded_at'),
+            'sap_aufk': ('SELECT COUNT(*) as count, MAX(uploaded_at) as uploaded_at FROM sap_aufk', 'uploaded_at'),
+            'sap_resb': ('SELECT COUNT(*) as count, MAX(uploaded_at) as uploaded_at FROM sap_resb', 'uploaded_at'),
             'wm_bins': ('SELECT COUNT(*) as count FROM wm_bins', None),
         }
         result = {}
@@ -814,8 +819,8 @@ class ImportService:
                 db.insert("""
                     INSERT INTO sap_mseg
                     (material_number, plant, document_number, year_number, line_item, storage_location,
-                     movement_type, posting_date, quantity)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     movement_type, posting_date, quantity, aufnr, ebeln, ebelp)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     mat, plant,
                     row.get('document_number') or row.get('MBLNR') or '',
@@ -824,7 +829,10 @@ class ImportService:
                     row.get('storage_location') or row.get('LGORT') or '',
                     mvtype,
                     row.get('posting_date') or row.get('BUDAT') or '',
-                    float(row.get('quantity') or row.get('MENGE') or 0)
+                    float(row.get('quantity') or row.get('MENGE') or 0),
+                    row.get('aufnr') or row.get('AUFNR') or '',
+                    row.get('ebeln') or row.get('EBELN') or '',
+                    row.get('ebelp') or row.get('EBELP') or '',
                 ))
                 count += 1
             except Exception:
@@ -852,6 +860,375 @@ class ImportService:
             except Exception:
                 continue
         return count
+
+    @staticmethod
+    def _raw_data(row: Dict, known: set) -> str:
+        extra = {k: v for k, v in row.items() if k.upper() not in known and k not in known}
+        return json.dumps(extra) if extra else ''
+
+    @staticmethod
+    def import_lqua(rows: List[Dict]) -> int:
+        db.execute("DELETE FROM sap_lqua")
+        count = 0
+        _KNOWN = {'LGNUM','LGTYP','LGPLA','LQNUM','MATNR','WERKS','LGORT','CHARG','BESTQ','SOBKZ','VERME','MENGE','MEINS',
+                  'lgnum','lgtyp','lgpla','lqnum','material_number','plant','storage_location','batch','stock_category','special_stock',
+                  'available_qty','total_qty','uom'}
+        for row in rows:
+            mat = (row.get('material_number') or row.get('MATNR') or '').strip()
+            if not mat:
+                continue
+            try:
+                db.insert("""
+                    INSERT INTO sap_lqua
+                    (lgnum, lgtyp, lgpla, lqnum, matnr, werks, lgort, charg, bestq, sobkz, verme, menge, meins, raw_data)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    row.get('lgnum') or row.get('LGNUM') or '',
+                    row.get('lgtyp') or row.get('LGTYP') or '',
+                    row.get('lgpla') or row.get('LGPLA') or '',
+                    row.get('lqnum') or row.get('LQNUM') or '',
+                    mat,
+                    row.get('plant') or row.get('WERKS') or '',
+                    row.get('storage_location') or row.get('LGORT') or '',
+                    row.get('batch') or row.get('CHARG') or '',
+                    row.get('stock_category') or row.get('BESTQ') or '',
+                    row.get('special_stock') or row.get('SOBKZ') or '',
+                    float(row.get('available_qty') or row.get('VERME') or row.get('verme') or 0),
+                    float(row.get('total_qty') or row.get('MENGE') or row.get('menge') or 0),
+                    row.get('uom') or row.get('MEINS') or '',
+                    ImportService._raw_data(row, _KNOWN),
+                ))
+                count += 1
+            except Exception:
+                continue
+        return count
+
+    @staticmethod
+    def import_ekko(rows: List[Dict]) -> int:
+        db.execute("DELETE FROM sap_ekko")
+        count = 0
+        _KNOWN = {'EBELN','BSTYP','BSART','LOEKZ','STATUS','AEDAT','ERDAT','ERNAM','LIFNR','ZTERM','EKGRP','BUKRS','BEDAT','KDATB','KDATE',
+                  'ebeln','doc_type','doc_category','deletion_flag','status','change_date','create_date','created_by','vendor','payment_terms',
+                  'purchasing_group','company_code','doc_date','validity_start','validity_end'}
+        for row in rows:
+            ebeln = (row.get('ebeln') or row.get('EBELN') or row.get('po_number') or '').strip()
+            if not ebeln:
+                continue
+            try:
+                db.insert("""
+                    INSERT OR REPLACE INTO sap_ekko
+                    (ebeln, bstyp, bsart, loekz, status, aedat, erdat, ernam, lifnr, zterm, ekgrp, bukrs, bedat, kdatb, kdate, raw_data)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    ebeln,
+                    row.get('bstyp') or row.get('BSTYP') or row.get('doc_category') or '',
+                    row.get('bsart') or row.get('BSART') or row.get('doc_type') or '',
+                    row.get('loekz') or row.get('LOEKZ') or row.get('deletion_flag') or '',
+                    row.get('status') or row.get('STATUS') or '',
+                    row.get('aedat') or row.get('AEDAT') or row.get('change_date') or '',
+                    row.get('erdat') or row.get('ERDAT') or row.get('create_date') or '',
+                    row.get('ernam') or row.get('ERNAM') or row.get('created_by') or '',
+                    row.get('lifnr') or row.get('LIFNR') or row.get('vendor') or '',
+                    row.get('zterm') or row.get('ZTERM') or row.get('payment_terms') or '',
+                    row.get('ekgrp') or row.get('EKGRP') or row.get('purchasing_group') or '',
+                    row.get('bukrs') or row.get('BUKRS') or row.get('company_code') or '',
+                    row.get('bedat') or row.get('BEDAT') or row.get('doc_date') or '',
+                    row.get('kdatb') or row.get('KDATB') or row.get('validity_start') or '',
+                    row.get('kdate') or row.get('KDATE') or row.get('validity_end') or '',
+                    ImportService._raw_data(row, _KNOWN),
+                ))
+                count += 1
+            except Exception:
+                continue
+        return count
+
+    @staticmethod
+    def import_ekpo(rows: List[Dict]) -> int:
+        db.execute("DELETE FROM sap_ekpo")
+        count = 0
+        _KNOWN = {'EBELN','EBELP','LOEKZ','STATU','AEDAT','TXZ01','MATNR','EMATN','BUKRS','WERKS','LGORT','MATKL','MENGE','MEINS',
+                  'NETPR','PEINH','NETWR','BRTWR','BSTAE','ELIKZ','EREKZ',
+                  'ebeln','ebelp','deletion_flag','status','change_date','short_text','material_number','ematn','company_code','plant',
+                  'storage_location','material_group','order_qty','uom','net_price','price_unit','net_value','gross_value','po_quantity',
+                  'delivery_completed','final_invoice'}
+        for row in rows:
+            ebeln = (row.get('ebeln') or row.get('EBELN') or row.get('po_number') or '').strip()
+            ebelp = (row.get('ebelp') or row.get('EBELP') or row.get('po_item') or '').strip()
+            if not ebeln or not ebelp:
+                continue
+            try:
+                db.insert("""
+                    INSERT OR REPLACE INTO sap_ekpo
+                    (ebeln, ebelp, loekz, statu, aedat, txz01, matnr, ematn, bukrs, werks, lgort, matkl,
+                     menge, meins, netpr, peinh, netwr, brtwr, bstae, elikz, erekz, raw_data)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    ebeln, ebelp,
+                    row.get('loekz') or row.get('LOEKZ') or row.get('deletion_flag') or '',
+                    row.get('statu') or row.get('STATU') or row.get('status') or '',
+                    row.get('aedat') or row.get('AEDAT') or row.get('change_date') or '',
+                    row.get('txz01') or row.get('TXZ01') or row.get('short_text') or '',
+                    (row.get('matnr') or row.get('MATNR') or row.get('material_number') or '').strip(),
+                    row.get('ematn') or row.get('EMATN') or '',
+                    row.get('bukrs') or row.get('BUKRS') or row.get('company_code') or '',
+                    row.get('werks') or row.get('WERKS') or row.get('plant') or '',
+                    row.get('lgort') or row.get('LGORT') or row.get('storage_location') or '',
+                    row.get('matkl') or row.get('MATKL') or row.get('material_group') or '',
+                    float(row.get('menge') or row.get('MENGE') or row.get('order_qty') or row.get('po_quantity') or 0),
+                    row.get('meins') or row.get('MEINS') or row.get('uom') or '',
+                    float(row.get('netpr') or row.get('NETPR') or row.get('net_price') or 0),
+                    float(row.get('peinh') or row.get('PEINH') or row.get('price_unit') or 0),
+                    float(row.get('netwr') or row.get('NETWR') or row.get('net_value') or 0),
+                    float(row.get('brtwr') or row.get('BRTWR') or row.get('gross_value') or 0),
+                    row.get('bstae') or row.get('BSTAE') or '',
+                    row.get('elikz') or row.get('ELIKZ') or row.get('delivery_completed') or '',
+                    row.get('erekz') or row.get('EREKZ') or row.get('final_invoice') or '',
+                    ImportService._raw_data(row, _KNOWN),
+                ))
+                count += 1
+            except Exception:
+                continue
+        return count
+
+    @staticmethod
+    def import_aufk(rows: List[Dict]) -> int:
+        db.execute("DELETE FROM sap_aufk")
+        count = 0
+        _KNOWN = {'AUFNR','AUART','WERKS','BUKRS','KTEXT','ERDAT','ERNAM','GSTRP','GLTRP','FTRMI','MATNR','GAMNG','GMEIN','WEMNG',
+                  'LGORT','SYSST','LOEKZ',
+                  'aufnr','order_number','order_type','plant','company_code','description','create_date','created_by',
+                  'basic_start','basic_finish','scheduled_finish','material_number','order_qty','uom','delivered_qty',
+                  'storage_location','system_status','deletion_flag'}
+        for row in rows:
+            aufnr = (row.get('aufnr') or row.get('AUFNR') or row.get('order_number') or '').strip()
+            if not aufnr:
+                continue
+            try:
+                db.insert("""
+                    INSERT OR REPLACE INTO sap_aufk
+                    (aufnr, auart, werks, bukrs, ktext, erdat, ernam, gstrp, gltrp, ftrmi,
+                     matnr, gamng, gmein, wemng, lgort, sysst, loekz, raw_data)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    aufnr,
+                    row.get('auart') or row.get('AUART') or row.get('order_type') or '',
+                    row.get('werks') or row.get('WERKS') or row.get('plant') or '',
+                    row.get('bukrs') or row.get('BUKRS') or row.get('company_code') or '',
+                    row.get('ktext') or row.get('KTEXT') or row.get('description') or '',
+                    row.get('erdat') or row.get('ERDAT') or row.get('create_date') or '',
+                    row.get('ernam') or row.get('ERNAM') or row.get('created_by') or '',
+                    row.get('gstrp') or row.get('GSTRP') or row.get('basic_start') or '',
+                    row.get('gltrp') or row.get('GLTRP') or row.get('basic_finish') or '',
+                    row.get('ftrmi') or row.get('FTRMI') or row.get('scheduled_finish') or '',
+                    (row.get('matnr') or row.get('MATNR') or row.get('material_number') or '').strip(),
+                    float(row.get('gamng') or row.get('GAMNG') or row.get('order_qty') or 0),
+                    row.get('gmein') or row.get('GMEIN') or row.get('uom') or '',
+                    float(row.get('wemng') or row.get('WEMNG') or row.get('delivered_qty') or 0),
+                    row.get('lgort') or row.get('LGORT') or row.get('storage_location') or '',
+                    row.get('sysst') or row.get('SYSST') or row.get('system_status') or '',
+                    row.get('loekz') or row.get('LOEKZ') or row.get('deletion_flag') or '',
+                    ImportService._raw_data(row, _KNOWN),
+                ))
+                count += 1
+            except Exception:
+                continue
+        return count
+
+    @staticmethod
+    def import_resb(rows: List[Dict]) -> int:
+        db.execute("DELETE FROM sap_resb")
+        count = 0
+        _KNOWN = {'RSNUM','RSPOS','RSART','MATNR','WERKS','LGORT','BDMNG','ENMNG','BDTER','AUFNR','EBELN','KZEAR','SOBKZ','BWART',
+                  'rsnum','rspos','reservation_type','material_number','plant','storage_location','required_qty','withdrawn_qty',
+                  'requirement_date','production_order','purchase_order','final_issue','special_stock','movement_type'}
+        for row in rows:
+            rsnum = (row.get('rsnum') or row.get('RSNUM') or '').strip()
+            rspos = (row.get('rspos') or row.get('RSPOS') or '').strip()
+            mat = (row.get('matnr') or row.get('MATNR') or row.get('material_number') or '').strip()
+            if not rsnum or not rspos or not mat:
+                continue
+            try:
+                db.insert("""
+                    INSERT OR REPLACE INTO sap_resb
+                    (rsnum, rspos, rsart, matnr, werks, lgort, bdmng, enmng, bdter, aufnr, ebeln, kzear, sobkz, bwart, raw_data)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    rsnum, rspos,
+                    row.get('rsart') or row.get('RSART') or row.get('reservation_type') or '',
+                    mat,
+                    row.get('werks') or row.get('WERKS') or row.get('plant') or '',
+                    row.get('lgort') or row.get('LGORT') or row.get('storage_location') or '',
+                    float(row.get('bdmng') or row.get('BDMNG') or row.get('required_qty') or 0),
+                    float(row.get('enmng') or row.get('ENMNG') or row.get('withdrawn_qty') or 0),
+                    row.get('bdter') or row.get('BDTER') or row.get('requirement_date') or '',
+                    row.get('aufnr') or row.get('AUFNR') or row.get('production_order') or '',
+                    row.get('ebeln') or row.get('EBELN') or row.get('purchase_order') or '',
+                    row.get('kzear') or row.get('KZEAR') or row.get('final_issue') or '',
+                    row.get('sobkz') or row.get('SOBKZ') or row.get('special_stock') or '',
+                    row.get('bwart') or row.get('BWART') or row.get('movement_type') or '',
+                    ImportService._raw_data(row, _KNOWN),
+                ))
+                count += 1
+            except Exception:
+                continue
+        return count
+
+class OrderValidationService:
+    @staticmethod
+    def get_material_warnings(material_number: str) -> Dict[str, Any]:
+        mat = material_number.strip().upper()
+
+        # Open purchase orders: EKPO rows for this material not marked delivery-complete
+        open_pos = db.fetch_all("""
+            SELECT p.ebeln, p.ebelp, p.menge, p.meins, p.werks, p.lgort,
+                   p.txz01, h.lifnr, h.bedat,
+                   COALESCE(gr.gr_qty, 0) as gr_qty,
+                   (p.menge - COALESCE(gr.gr_qty, 0)) as open_qty
+            FROM sap_ekpo p
+            LEFT JOIN sap_ekko h ON h.ebeln = p.ebeln
+            LEFT JOIN (
+                SELECT ebeln, ebelp, SUM(quantity) as gr_qty
+                FROM sap_mseg
+                WHERE movement_type IN ('101','161') AND ebeln != ''
+                GROUP BY ebeln, ebelp
+            ) gr ON gr.ebeln = p.ebeln AND gr.ebelp = p.ebelp
+            WHERE p.matnr = ?
+              AND (p.loekz IS NULL OR p.loekz = '')
+              AND (p.elikz IS NULL OR p.elikz = '')
+              AND (p.menge - COALESCE(gr.gr_qty, 0)) > 0
+        """, (mat,))
+
+        # Open production orders: AUFK rows for this material not technically complete
+        open_orders = db.fetch_all("""
+            SELECT a.aufnr, a.auart, a.ktext, a.werks, a.lgort,
+                   a.gamng, a.gmein, a.wemng, a.gstrp, a.gltrp, a.sysst,
+                   (a.gamng - COALESCE(a.wemng, 0)) as open_qty
+            FROM sap_aufk a
+            WHERE a.matnr = ?
+              AND (a.loekz IS NULL OR a.loekz = '')
+              AND (a.sysst NOT LIKE '%TECO%' AND a.sysst NOT LIKE '%CLSD%')
+              AND (a.gamng - COALESCE(a.wemng, 0)) > 0
+        """, (mat,))
+
+        # Open reservations: RESB rows not fully issued
+        open_resb = db.fetch_all("""
+            SELECT rsnum, rspos, rsart, werks, lgort, bdmng, enmng,
+                   (bdmng - COALESCE(enmng, 0)) as remaining_qty,
+                   aufnr, ebeln, bdter, bwart
+            FROM sap_resb
+            WHERE matnr = ?
+              AND (kzear IS NULL OR kzear = '')
+              AND (bdmng - COALESCE(enmng, 0)) > 0
+        """, (mat,))
+
+        return {
+            'open_pos': [dict(r) for r in open_pos],
+            'open_orders': [dict(r) for r in open_orders],
+            'open_reservations': [dict(r) for r in open_resb],
+            'has_open_pos': len(open_pos) > 0,
+            'has_open_orders': len(open_orders) > 0,
+            'has_open_reservations': len(open_resb) > 0,
+        }
+
+    @staticmethod
+    def get_counts_over_snapshot(session_id: int) -> List[Dict]:
+        rows = db.fetch_all("""
+            SELECT
+                s.material_number,
+                s.sloc,
+                s.sap_quantity     AS snapshot_qty,
+                s.uom,
+                COALESCE(m.unrestricted_qty, 0) AS mard_qty,
+                COALESCE(SUM(c.quantity), 0)    AS counted_qty,
+                COALESCE(SUM(c.quantity), 0) - s.sap_quantity AS variance,
+                mat.description,
+                v.standard_price,
+                v.moving_avg_price,
+                v.total_value,
+                (SELECT COUNT(*) FROM sap_resb r WHERE r.matnr = s.material_number
+                 AND (r.kzear IS NULL OR r.kzear = '')
+                 AND (r.bdmng - COALESCE(r.enmng,0)) > 0) AS open_reservation_count,
+                (SELECT COUNT(*) FROM sap_ekpo p WHERE p.matnr = s.material_number
+                 AND (p.loekz IS NULL OR p.loekz = '')
+                 AND (p.elikz IS NULL OR p.elikz = '')) AS open_po_count,
+                (SELECT COUNT(*) FROM sap_aufk a WHERE a.matnr = s.material_number
+                 AND (a.loekz IS NULL OR a.loekz = '')
+                 AND (a.sysst NOT LIKE '%TECO%' AND a.sysst NOT LIKE '%CLSD%')) AS open_order_count
+            FROM sap_snapshot s
+            LEFT JOIN sap_mard m ON m.material_number = s.material_number
+                                 AND m.storage_location = s.sloc
+            LEFT JOIN counts c ON c.material_number = s.material_number
+                               AND c.sloc = s.sloc
+                               AND c.session_id = ?
+                               AND c.status != 'deleted'
+            LEFT JOIN sap_materials mat ON mat.material_number = s.material_number
+            LEFT JOIN sap_valuation v ON v.material_number = s.material_number
+            WHERE s.session_id = ?
+            GROUP BY s.material_number, s.sloc
+            HAVING COALESCE(SUM(c.quantity), 0) > s.sap_quantity
+            ORDER BY variance DESC
+        """, (session_id, session_id))
+        return [dict(r) for r in rows]
+
+    @staticmethod
+    def get_wm_discrepancies(session_id: int) -> List[Dict]:
+        rows = db.fetch_all("""
+            SELECT
+                c.material_number,
+                c.wm_bin          AS counted_bin,
+                c.sloc,
+                SUM(c.quantity)   AS counted_qty,
+                c.username,
+                mat.description,
+                COALESCE(q.verme, 0) AS lqua_available,
+                COALESCE(q.menge, 0) AS lqua_total,
+                q.lgtyp,
+                ABS(SUM(c.quantity) - COALESCE(q.verme, 0)) AS discrepancy
+            FROM counts c
+            LEFT JOIN sap_materials mat ON mat.material_number = c.material_number
+            LEFT JOIN sap_lqua q ON q.matnr = c.material_number
+                                 AND q.lgpla = c.wm_bin
+            WHERE c.session_id = ?
+              AND c.wm_bin IS NOT NULL
+              AND c.wm_bin != ''
+              AND c.status != 'deleted'
+            GROUP BY c.material_number, c.wm_bin, c.sloc
+            HAVING ABS(SUM(c.quantity) - COALESCE(q.verme, 0)) > 0
+               OR q.verme IS NULL
+            ORDER BY discrepancy DESC
+        """, (session_id,))
+        return [dict(r) for r in rows]
+
+    @staticmethod
+    def get_reservation_output_warnings(session_id: int) -> List[Dict]:
+        """Materials where counted qty is LESS than snapshot AND open reservations exist — risk of over-adjusting stock out."""
+        rows = db.fetch_all("""
+            SELECT
+                s.material_number,
+                s.sloc,
+                s.sap_quantity     AS snapshot_qty,
+                COALESCE(SUM(c.quantity), 0) AS counted_qty,
+                s.sap_quantity - COALESCE(SUM(c.quantity), 0) AS shortage,
+                mat.description,
+                GROUP_CONCAT(r.rsnum || '/' || r.rspos || ' (' || r.aufnr || ')') AS reservations,
+                SUM(r.bdmng - COALESCE(r.enmng, 0)) AS total_reserved_qty
+            FROM sap_snapshot s
+            LEFT JOIN counts c ON c.material_number = s.material_number
+                               AND c.sloc = s.sloc
+                               AND c.session_id = ?
+                               AND c.status != 'deleted'
+            LEFT JOIN sap_materials mat ON mat.material_number = s.material_number
+            LEFT JOIN sap_resb r ON r.matnr = s.material_number
+                                 AND (r.kzear IS NULL OR r.kzear = '')
+                                 AND (r.bdmng - COALESCE(r.enmng,0)) > 0
+            WHERE s.session_id = ?
+            GROUP BY s.material_number, s.sloc
+            HAVING COALESCE(SUM(c.quantity), 0) < s.sap_quantity
+               AND total_reserved_qty > 0
+            ORDER BY shortage DESC
+        """, (session_id, session_id))
+        return [dict(r) for r in rows]
+
 
 class DashboardService:
     @staticmethod

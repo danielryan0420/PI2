@@ -12,7 +12,8 @@ import openpyxl
 from services import (
     UserService, SessionService, CountService, PhotoService,
     MessageService, AuditService, SlocConfigService, MaterialService,
-    WmBinService, DashboardService, ImportService, ThreadService
+    WmBinService, DashboardService, ImportService, ThreadService,
+    OrderValidationService
 )
 
 app = Flask(__name__)
@@ -817,6 +818,77 @@ def import_lgplo():
     try:
         count = ImportService.import_lgplo(rows)
         return jsonify({'imported': count}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.post('/api/imports/ekko')
+def import_ekko():
+    rows, err, code = parse_csv_upload()
+    if err:
+        return err, code
+    try:
+        return jsonify({'imported': ImportService.import_ekko(rows)}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.post('/api/imports/ekpo')
+def import_ekpo():
+    rows, err, code = parse_csv_upload()
+    if err:
+        return err, code
+    try:
+        return jsonify({'imported': ImportService.import_ekpo(rows)}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.post('/api/imports/aufk')
+def import_aufk():
+    rows, err, code = parse_csv_upload()
+    if err:
+        return err, code
+    try:
+        return jsonify({'imported': ImportService.import_aufk(rows)}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.post('/api/imports/resb')
+def import_resb():
+    rows, err, code = parse_csv_upload()
+    if err:
+        return err, code
+    try:
+        return jsonify({'imported': ImportService.import_resb(rows)}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.get('/api/validate/open-orders')
+def validate_open_orders():
+    material = request.args.get('material', '').strip()
+    if not material:
+        return jsonify({'error': 'material required'}), 400
+    try:
+        return jsonify(OrderValidationService.get_material_warnings(material))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.get('/api/sessions/<int:session_id>/counts-over-snapshot')
+def counts_over_snapshot(session_id):
+    try:
+        return jsonify(OrderValidationService.get_counts_over_snapshot(session_id))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.get('/api/sessions/<int:session_id>/wm-discrepancies')
+def wm_discrepancies(session_id):
+    try:
+        return jsonify(OrderValidationService.get_wm_discrepancies(session_id))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.get('/api/sessions/<int:session_id>/reservation-warnings')
+def reservation_warnings(session_id):
+    try:
+        return jsonify(OrderValidationService.get_reservation_output_warnings(session_id))
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 

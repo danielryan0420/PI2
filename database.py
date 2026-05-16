@@ -377,6 +377,146 @@ CREATE INDEX IF NOT EXISTS idx_messages_reply_to ON messages(reply_to_id);
     ("015_counts_warnings_index.sql", """
 CREATE INDEX IF NOT EXISTS idx_counts_warnings ON counts(validation_warnings);
 """),
+    ("016_open_orders.sql", """
+-- Purchase Order Headers (EKKO)
+CREATE TABLE IF NOT EXISTS sap_ekko (
+    ebeln       TEXT PRIMARY KEY,
+    bstyp       TEXT,
+    bsart       TEXT,
+    loekz       TEXT,
+    status      TEXT,
+    aedat       TEXT,
+    erdat       TEXT,
+    ernam       TEXT,
+    lifnr       TEXT,
+    zterm       TEXT,
+    ekgrp       TEXT,
+    bukrs       TEXT,
+    bedat       TEXT,
+    kdatb       TEXT,
+    kdate       TEXT,
+    raw_data    TEXT,
+    uploaded_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Purchase Order Items (EKPO)
+CREATE TABLE IF NOT EXISTS sap_ekpo (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    ebeln       TEXT NOT NULL,
+    ebelp       TEXT NOT NULL,
+    loekz       TEXT,
+    statu       TEXT,
+    aedat       TEXT,
+    txz01       TEXT,
+    matnr       TEXT,
+    ematn       TEXT,
+    bukrs       TEXT,
+    werks       TEXT,
+    lgort       TEXT,
+    matkl       TEXT,
+    menge       REAL,
+    meins       TEXT,
+    netpr       REAL,
+    peinh       REAL,
+    netwr       REAL,
+    brtwr       REAL,
+    bstae       TEXT,
+    elikz       TEXT,
+    erekz       TEXT,
+    raw_data    TEXT,
+    uploaded_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(ebeln, ebelp)
+);
+CREATE INDEX IF NOT EXISTS idx_ekpo_matnr ON sap_ekpo(matnr);
+CREATE INDEX IF NOT EXISTS idx_ekpo_werks ON sap_ekpo(werks);
+CREATE INDEX IF NOT EXISTS idx_ekpo_ebeln ON sap_ekpo(ebeln);
+"""),
+    ("017_aufk.sql", """
+-- Production / Process Orders (AUFK + AFKO combined export)
+CREATE TABLE IF NOT EXISTS sap_aufk (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    aufnr       TEXT NOT NULL UNIQUE,
+    auart       TEXT,
+    werks       TEXT,
+    bukrs       TEXT,
+    ktext       TEXT,
+    erdat       TEXT,
+    ernam       TEXT,
+    gstrp       TEXT,
+    gltrp       TEXT,
+    ftrmi       TEXT,
+    matnr       TEXT,
+    gamng       REAL,
+    gmein       TEXT,
+    wemng       REAL,
+    lgort       TEXT,
+    sysst       TEXT,
+    loekz       TEXT,
+    raw_data    TEXT,
+    uploaded_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_aufk_matnr ON sap_aufk(matnr);
+CREATE INDEX IF NOT EXISTS idx_aufk_werks ON sap_aufk(werks);
+CREATE INDEX IF NOT EXISTS idx_aufk_sysst ON sap_aufk(sysst);
+"""),
+    ("018_resb.sql", """
+-- Reservations / Dependent Requirements (RESB)
+CREATE TABLE IF NOT EXISTS sap_resb (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    rsnum       TEXT NOT NULL,
+    rspos       TEXT NOT NULL,
+    rsart       TEXT,
+    matnr       TEXT NOT NULL,
+    werks       TEXT,
+    lgort       TEXT,
+    bdmng       REAL,
+    enmng       REAL,
+    bdter       TEXT,
+    aufnr       TEXT,
+    ebeln       TEXT,
+    kzear       TEXT,
+    sobkz       TEXT,
+    bwart       TEXT,
+    raw_data    TEXT,
+    uploaded_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(rsnum, rspos)
+);
+CREATE INDEX IF NOT EXISTS idx_resb_matnr ON sap_resb(matnr);
+CREATE INDEX IF NOT EXISTS idx_resb_aufnr ON sap_resb(aufnr);
+CREATE INDEX IF NOT EXISTS idx_resb_werks ON sap_resb(werks);
+"""),
+    ("019_lqua_bins_mseg_orders.sql", """
+-- Rebuild LQUA at bin/quant level (LGNUM+LGTYP+LGPLA+LQNUM uniquely identifies a quant)
+DROP TABLE IF EXISTS sap_lqua;
+CREATE TABLE IF NOT EXISTS sap_lqua (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    lgnum       TEXT,
+    lgtyp       TEXT,
+    lgpla       TEXT,
+    lqnum       TEXT,
+    matnr       TEXT NOT NULL,
+    werks       TEXT,
+    lgort       TEXT,
+    charg       TEXT,
+    bestq       TEXT,
+    sobkz       TEXT,
+    verme       REAL,
+    menge       REAL,
+    meins       TEXT,
+    raw_data    TEXT,
+    uploaded_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_lqua_matnr ON sap_lqua(matnr);
+CREATE INDEX IF NOT EXISTS idx_lqua_lgpla ON sap_lqua(lgpla);
+CREATE INDEX IF NOT EXISTS idx_lqua_lgtyp ON sap_lqua(lgtyp);
+
+-- Add order reference columns to MSEG for GR matching
+ALTER TABLE sap_mseg ADD COLUMN aufnr TEXT;
+ALTER TABLE sap_mseg ADD COLUMN ebeln TEXT;
+ALTER TABLE sap_mseg ADD COLUMN ebelp TEXT;
+CREATE INDEX IF NOT EXISTS idx_mseg_aufnr ON sap_mseg(aufnr);
+CREATE INDEX IF NOT EXISTS idx_mseg_ebeln ON sap_mseg(ebeln);
+"""),
 ]
 
 class Database:
