@@ -226,7 +226,7 @@ export function CountForm({ onSubmitted, prefill, onPrefillConsumed }: CountForm
           status: 'pending',
           editor_username: username,
           reason: 'Recount submitted',
-        }, { username, role });
+        }, { username, role: role ?? undefined });
         setOriginalCountId(null);
         setRecountBanner(false);
       } else {
@@ -243,7 +243,7 @@ export function CountForm({ onSubmitted, prefill, onPrefillConsumed }: CountForm
 
       // Send question as a thread so it shows up in the office dashboard
       if (question.trim()) {
-        await api.post(`/sessions/${session.id}/threads`, { title: question.trim(), count_id: count.id }, { username, role });
+        await api.post(`/sessions/${session.id}/threads`, { title: question.trim(), count_id: count.id }, { username, role: role ?? undefined });
         setQuestion('');
       }
 
