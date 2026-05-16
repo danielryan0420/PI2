@@ -231,4 +231,3 @@ echo  Make sure 'python run_production.py' is also running.
 echo.
 echo  To stop nginx:  taskkill /F /IM nginx.exe
 echo.
-pause

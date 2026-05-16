@@ -59,4 +59,5 @@ echo.
 echo Starting proxy...
 call setup_nginx_proxy.bat
 
-REM setup_nginx_proxy.bat prints the URL — nothing else needed here
+REM This window closes automatically — the app server window stays open
+exit
