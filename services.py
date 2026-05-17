@@ -541,6 +541,7 @@ class ImportService:
             'sap_ekpo': ('SELECT COUNT(*) as count, MAX(uploaded_at) as uploaded_at FROM sap_ekpo', 'uploaded_at'),
             'sap_aufk': ('SELECT COUNT(*) as count, MAX(uploaded_at) as uploaded_at FROM sap_aufk', 'uploaded_at'),
             'sap_resb': ('SELECT COUNT(*) as count, MAX(uploaded_at) as uploaded_at FROM sap_resb', 'uploaded_at'),
+            'material_exclusions': ('SELECT COUNT(*) as count, MAX(uploaded_at) as uploaded_at FROM material_exclusions', 'uploaded_at'),
             'wm_bins': ('SELECT COUNT(*) as count FROM wm_bins', None),
         }
         result = {}
@@ -1072,6 +1073,61 @@ class ImportService:
             except Exception:
                 continue
         return count
+
+    @staticmethod
+    def import_exclusions(rows: List[Dict]) -> int:
+        db.execute("DELETE FROM material_exclusions")
+        count = 0
+        for row in rows:
+            matnr = (row.get('MATNR') or row.get('matnr') or row.get('material_number') or row.get('material') or '').strip().lstrip('0')
+            reason = (row.get('reason') or row.get('REASON') or row.get('note') or row.get('NOTE') or row.get('text') or '').strip()
+            if not matnr:
+                continue
+            try:
+                db.insert(
+                    "INSERT OR REPLACE INTO material_exclusions (material_number, reason) VALUES (?, ?)",
+                    (matnr, reason)
+                )
+                count += 1
+            except Exception:
+                continue
+        return count
+
+    @staticmethod
+    def get_adjustment_export(session_id: int) -> List[Dict]:
+        """Final SAP adjustment list: materials where counted qty differs from snapshot, excluding the exclusion list."""
+        rows = db.fetch_all("""
+            SELECT
+                s.material_number,
+                COALESCE(mat.description, '') AS description,
+                COALESCE(m.plant, '')          AS plant,
+                s.sloc,
+                COALESCE(s.uom, '')            AS uom,
+                s.sap_quantity                 AS snapshot_qty,
+                COALESCE(SUM(c.quantity), 0)   AS counted_qty,
+                COALESCE(SUM(c.quantity), 0) - s.sap_quantity AS adjustment
+            FROM sap_snapshot s
+            LEFT JOIN counts c ON c.material_number = s.material_number
+                               AND c.sloc = s.sloc
+                               AND c.session_id = ?
+                               AND c.status NOT IN ('deleted', 'flagged')
+            LEFT JOIN sap_materials mat ON mat.material_number = s.material_number
+            LEFT JOIN sap_mard m ON m.material_number = s.material_number
+                                 AND m.storage_location = s.sloc
+            WHERE s.session_id = ?
+              AND s.material_number NOT IN (SELECT material_number FROM material_exclusions)
+            GROUP BY s.material_number, s.sloc
+            HAVING COUNT(c.id) > 0
+               AND ABS(COALESCE(SUM(c.quantity), 0) - s.sap_quantity) > 0.0001
+            ORDER BY s.sloc, s.material_number
+        """, (session_id, session_id))
+        return [dict(r) for r in rows]
+
+    @staticmethod
+    def get_excluded_materials() -> List[Dict]:
+        rows = db.fetch_all("SELECT material_number, reason, uploaded_at FROM material_exclusions ORDER BY material_number")
+        return [dict(r) for r in rows]
+
 
 class OrderValidationService:
     @staticmethod

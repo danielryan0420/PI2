@@ -532,32 +532,73 @@ const tabs: { key: Tab; label: string }[] = [
               </CardBody>
             </Card>
 
+            <Card className="border-amber-200">
+              <CardHeader><h3 className="font-semibold text-amber-800 text-sm">Material Exclusion List</h3></CardHeader>
+              <CardBody className="flex flex-col gap-2">
+                {importStatus['material_exclusions'] && importStatus['material_exclusions'].count > 0 ? (
+                  <div className="bg-amber-50 rounded px-2 py-1">
+                    <p className="text-xs font-medium text-amber-900">Excluded: <span className="font-bold">{importStatus['material_exclusions'].count.toLocaleString()}</span> materials</p>
+                    <p className="text-xs text-amber-700">⏰ Last: {importStatus['material_exclusions'].updated_at ? formatDateTime(importStatus['material_exclusions'].updated_at!) : 'Never'}</p>
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 rounded px-2 py-1 text-xs text-gray-600">No exclusions loaded</div>
+                )}
+                <p className="text-xs text-gray-500">CSV with a <strong>MATNR</strong> (or material_number) column. Optional <strong>reason</strong> column. Excluded materials can still be counted but are removed from the SAP adjustment export.</p>
+                <label className={`inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-lg border border-dashed border-amber-400 cursor-pointer text-sm text-amber-700 hover:bg-amber-50 ${importing === 'exclusions' ? 'opacity-50 pointer-events-none' : ''}`}>
+                  {importing === 'exclusions' ? '⟳ Importing…' : '↑ Upload Exclusion List CSV'}
+                  <input type="file" accept=".csv,.xlsx,.xls,.txt" className="hidden" onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleImport('exclusions', '/imports/exclusions', file);
+                    e.target.value = '';
+                  }} />
+                </label>
+              </CardBody>
+            </Card>
+
           </div>
         )}
 
         {/* ─── EXPORT TAB ─── */}
         {tab === 'export' && (
-          <Card className="max-w-md">
-            <CardHeader><h3 className="font-semibold text-gray-700">Export Count Data</h3></CardHeader>
-            <CardBody className="flex flex-col gap-4">
-              <Select
-                label="Format"
-                value={exportFormat}
-                onChange={(e) => setExportFormat(e.target.value)}
-                options={[
-                  { value: 'csv', label: 'CSV — Comma Separated Values' },
-                  { value: 'tsv', label: 'TSV — Tab Separated Values' },
-                  { value: 'xlsx', label: 'XLSX — Excel Workbook' },
-                ]}
-              />
-              <div className="grid grid-cols-2 gap-3">
-                <Input label="From date" type="date" value={exportFrom} onChange={(e) => setExportFrom(e.target.value)} />
-                <Input label="To date" type="date" value={exportTo} onChange={(e) => setExportTo(e.target.value)} />
-              </div>
-              <p className="text-xs text-gray-500">Photos and messages are excluded from export. Includes material descriptions from SAP master data if loaded.</p>
-              <Button onClick={handleExport} size="lg">↓ Download {exportFormat.toUpperCase()}</Button>
-            </CardBody>
-          </Card>
+          <div className="flex flex-col gap-4 max-w-md">
+            <Card className="border-green-200">
+              <CardHeader><h3 className="font-semibold text-green-800">SAP Adjustment Export</h3></CardHeader>
+              <CardBody className="flex flex-col gap-3">
+                <p className="text-sm text-gray-600">Downloads the final adjustment list for SAP — materials where the count differs from the snapshot. Excluded materials are omitted. Columns: Material, Description, Plant, SLOC, UOM, Snapshot Qty, Counted Qty, Adjustment (+/−).</p>
+                <p className="text-xs text-amber-700 bg-amber-50 rounded px-2 py-1">Only includes materials that were counted AND differ from the snapshot. Upload exclusion list in SAP Data tab to filter materials out of this export.</p>
+                <Button
+                  variant="primary"
+                  size="lg"
+                  onClick={() => { if (session) window.open(`/api/sessions/${session.id}/export/adjustments`, '_blank'); }}
+                  disabled={!session}
+                >
+                  ↓ Download SAP Adjustments CSV
+                </Button>
+              </CardBody>
+            </Card>
+
+            <Card>
+              <CardHeader><h3 className="font-semibold text-gray-700">Full Count Data Export</h3></CardHeader>
+              <CardBody className="flex flex-col gap-4">
+                <Select
+                  label="Format"
+                  value={exportFormat}
+                  onChange={(e) => setExportFormat(e.target.value)}
+                  options={[
+                    { value: 'csv', label: 'CSV — Comma Separated Values' },
+                    { value: 'tsv', label: 'TSV — Tab Separated Values' },
+                    { value: 'xlsx', label: 'XLSX — Excel Workbook' },
+                  ]}
+                />
+                <div className="grid grid-cols-2 gap-3">
+                  <Input label="From date" type="date" value={exportFrom} onChange={(e) => setExportFrom(e.target.value)} />
+                  <Input label="To date" type="date" value={exportTo} onChange={(e) => setExportTo(e.target.value)} />
+                </div>
+                <p className="text-xs text-gray-500">All count records including every individual count entry. Photos and messages excluded.</p>
+                <Button onClick={handleExport} size="lg">↓ Download {exportFormat.toUpperCase()}</Button>
+              </CardBody>
+            </Card>
+          </div>
         )}
 
         {/* ─── SLOC CONFIG TAB ─── */}

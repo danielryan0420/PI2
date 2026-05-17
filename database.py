@@ -485,6 +485,13 @@ CREATE INDEX IF NOT EXISTS idx_resb_matnr ON sap_resb(matnr);
 CREATE INDEX IF NOT EXISTS idx_resb_aufnr ON sap_resb(aufnr);
 CREATE INDEX IF NOT EXISTS idx_resb_werks ON sap_resb(werks);
 """),
+    ("020_material_exclusions.sql", """
+CREATE TABLE IF NOT EXISTS material_exclusions (
+    material_number TEXT PRIMARY KEY,
+    reason          TEXT,
+    uploaded_at     TEXT NOT NULL DEFAULT (datetime('now'))
+);
+"""),
     ("019_lqua_bins_mseg_orders.sql", """
 -- Rebuild LQUA at bin/quant level (LGNUM+LGTYP+LGPLA+LQNUM uniquely identifies a quant)
 DROP TABLE IF EXISTS sap_lqua;

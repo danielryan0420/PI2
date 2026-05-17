@@ -861,6 +861,20 @@ def import_resb():
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
+@app.post('/api/imports/exclusions')
+def import_exclusions():
+    rows, err, code = parse_csv_upload()
+    if err:
+        return err, code
+    try:
+        return jsonify({'imported': ImportService.import_exclusions(rows)}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.get('/api/imports/exclusions')
+def list_exclusions():
+    return jsonify(ImportService.get_excluded_materials())
+
 @app.get('/api/validate/open-orders')
 def validate_open_orders():
     material = request.args.get('material', '').strip()
@@ -910,6 +924,20 @@ def export_session(session_id):
         output.getvalue(),
         mimetype='text/csv',
         headers={'Content-Disposition': f'attachment; filename=session_{session_id}_counts.csv'}
+    )
+
+@app.get('/api/sessions/<int:session_id>/export/adjustments')
+def export_adjustments(session_id):
+    rows = ImportService.get_adjustment_export(session_id)
+    output = io.StringIO()
+    fields = ['material_number', 'description', 'plant', 'sloc', 'uom', 'snapshot_qty', 'counted_qty', 'adjustment']
+    writer = csv.DictWriter(output, fieldnames=fields, extrasaction='ignore')
+    writer.writeheader()
+    writer.writerows(rows)
+    return Response(
+        output.getvalue(),
+        mimetype='text/csv',
+        headers={'Content-Disposition': f'attachment; filename=session_{session_id}_adjustments.csv'}
     )
 
 # ===== AUDIT LOG =====
