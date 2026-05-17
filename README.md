@@ -1,209 +1,142 @@
 # Physical Inventory System
 
-A Python/Flask backend + React frontend inventory management system for warehouse counting operations. Supports QR/barcode scanning, photo capture, SAP data imports, and multi-role workflows.
+Warehouse counting app — Python/Flask backend, React frontend, SQLite database. Up to 50 concurrent users. No firewall changes required.
 
-## Features
+## Setup (Windows, first time only)
 
-- **React UI** — Full-featured frontend with Tailwind CSS
-- **Flask REST API** — SQLite database, 50+ endpoints
-- **Counter Interface** — Camera barcode/QR scanning, photo attachments, Zebra scanner support
-- **Admin Features** — Manual entry, bulk SAP import, SLOC management, WM bin configuration
-- **Analytics** — Real-time dashboard with discrepancy detection and counter performance tracking
-- **Audit Trail** — Complete logging of all count modifications
-- **50 Concurrent Users** — Waitress (Windows) / Gunicorn (Linux) production server
-
-## Tech Stack
-
-- **Backend:** Python 3.8+, Flask 3.0.3, SQLite (WAL mode)
-- **Production Server:** Waitress 3.0.1 (Windows) / Gunicorn 21.2.0 (Linux/Mac)
-- **Proxy:** nginx (Windows PC) or IIS (Windows Server) on port 80/443
-- **Frontend:** React 19, TypeScript, Tailwind CSS, Vite
-- **Scanning:** zxing (camera) + Bluetooth keyboard input (Zebra scanners)
-
-## Quick Setup (Windows)
-
-**Step 1 — First time only:**
 ```bat
-setup.bat
-```
-Installs dependencies, builds React, seeds the database.
-
-**Step 2 — Start the app:**
-```bat
-python run_production.py
+setup.bat          :: installs dependencies, builds React, seeds DB
+start.bat          :: starts app server + nginx proxy together
 ```
 
-**Step 3 — Start the proxy:**
+Users reach the app at `http://YOUR-PC-NAME` (no port number needed).
+
+To stop: `stop.bat`. To update: `update.bat`.
+
+**Access from another laptop or phone:** run `ipconfig` on the server PC, note the IPv4 address (e.g. `192.168.1.10`), then open `http://192.168.1.10` on any device on the same network.
+
+## Enable HTTPS (required for camera scanning on phones)
+
 ```bat
+python setup_ssl.py
 setup_nginx_proxy.bat
 ```
-Users access the app at `http://YOUR-PC-NAME` — no port number, no firewall change.
 
-See **QUICKSTART.md** for full instructions including HTTPS setup.
-
-## User Roles
-
-### Counter
-- Submit inventory counts with camera barcode scanning
-- Attach photos to counts
-- View dashboard and recent submissions
-
-### Admin
-- All counter access plus:
-- Manual count entry and bulk SAP import
-- Manage SLOC configurations and WM bins
-- Create and manage inventory sessions
-- User administration and audit logs
+Install the generated certificate on each device (instructions printed by setup_ssl.py). Users then access `https://YOUR-PC-NAME`.
 
 ## Default Credentials
 
 | User | Password | Role |
 |------|----------|------|
 | `admin` | `admin` | Full access |
-| `counter1` | *(any)* | Counter only |
-| `counter2` | *(any)* | Counter only |
+| `counter1` | *(any)* | Count entry only |
+| `counter2` | *(any)* | Count entry only |
 
-Change the admin password immediately after first login.
+Change the admin password in Admin → Users immediately after setup.
 
-## Project Structure
+## User Roles
 
-```
-Physical_Inventory/
-├── server.py                # Flask application (routes, API)
-├── services.py              # Business logic layer
-├── database.py              # SQLite setup, WAL config, 15 migrations
-├── wsgi.py                  # WSGI entry point for Waitress/Gunicorn
-├── init_db.py               # Seed data (auto-runs on startup)
-├── run_production.py        # Production server launcher (50 users)
-├── run_production.sh        # Bash variant (Linux/Mac)
-├── requirements.txt         # Python dependencies
-├── setup.bat                # First-time Windows setup
-├── update.bat               # Pull updates from GitHub
-├── setup_ssl.py             # Generate SSL certificate for HTTPS
-├── setup_nginx_proxy.bat    # nginx proxy setup (Windows PC)
-├── setup_iis_proxy.ps1      # IIS proxy setup (Windows Server)
-├── package.json             # Root npm scripts
-├── client/                  # React frontend
-│   ├── src/
-│   │   ├── pages/           # Page components
-│   │   ├── components/      # Reusable components
-│   │   ├── lib/             # API client, utilities
-│   │   ├── context/         # React context (session, toasts)
-│   │   └── types/           # TypeScript interfaces
-│   ├── vite.config.ts
-│   └── dist/                # Built frontend (served by Flask)
-├── uploads/                 # Photo attachments (back up daily)
-└── inventory.db             # SQLite database (back up daily)
-```
+**Counter** — submit counts, scan barcodes, attach photos, message office.
+
+**Admin** — everything above plus: manual entry, SAP data import, session management, user admin, audit log, export.
+
+## SAP Data Imports
+
+Upload CSV or XLSX exports directly from SAP in Admin → SAP Data:
+
+| Table | Source | Purpose |
+|-------|--------|---------|
+| MARA/MAKT | MM60 / SE16 | Material master and descriptions |
+| MARC | SE16 | Plant-level material data |
+| MBEW | SE16 | Valuation |
+| MARD | MB52 | Warehouse stock (snapshot baseline) |
+| MSEG | MB51 | Material movements |
+| MLGT | LS26 | WM storage type data |
+| MLGN | LS26 | WM storage section data |
+| LQUA | LS26 | Bin quants (WM discrepancy check) |
+| T300T | SE16 | Storage location descriptions |
+| EKKO/EKPO | ME2M | Purchase order headers/lines |
+| AUFK | CO03 | Production/process orders |
+| RESB | MB25 | Open reservations |
+| Snapshot | Custom | Stock freeze at count start |
+| Exclusion list | — | Materials to exclude from SAP export |
+
+All tables accept any SAP column — extra columns are captured automatically in `raw_data`.
+
+## Exports
+
+**Admin → Export → SAP Adjustment Export** — the main output. One row per material/SLOC where the count differs from the snapshot. Excluded materials are filtered out. Columns: Material, Description, Plant, SLOC, UOM, Snapshot Qty, Counted Qty, Adjustment.
+
+**Admin → Export → Full Count Data** — all individual count records.
+
+## Dashboard Warnings
+
+- **Counts Over Snapshot** — materials counted higher than the MARD snapshot
+- **WM Discrepancies** — bin-level differences between LQUA and final counts
+- **Reservation Warnings** — materials counted below snapshot with open RESB reservations (risk of over-adjusting stock out)
+
+Counters see open PO / production order / reservation warnings at count entry time.
 
 ## Architecture
 
 ```
 Users (port 80/443)
       │
-  nginx / IIS          ← handles HTTPS, security headers, access logs
+  nginx / IIS          ← port 80, no firewall rule needed
       │
 localhost:8081
       │
-  Waitress / Gunicorn  ← 64 threads (Windows) / 9 workers (Linux)
+  Waitress (Windows)   ← 64 threads
+  Gunicorn (Linux)     ← multi-process
       │
-  Flask app            ← routes, business logic, serves React
-      │
-  SQLite (WAL)         ← concurrent reads, serialized writes, ACID
+  Flask + SQLite (WAL) ← ACID, concurrent reads, serialized writes
 ```
 
-Port 8081 is localhost-only — no firewall rule required.
+Port 8081 is localhost-only — not visible on the network.
 
-## Running in Development
+## File Reference
+
+| File | Purpose |
+|------|---------|
+| `start.bat` | Start everything (app + proxy) |
+| `stop.bat` | Stop everything |
+| `setup.bat` | First-time setup |
+| `update.bat` | Pull updates from GitHub |
+| `setup_ssl.py` | Generate SSL certificate |
+| `setup_nginx_proxy.bat` | nginx proxy (Windows PC) |
+| `setup_iis_proxy.ps1` | IIS proxy (Windows Server) |
+| `run_production.py` | App server (used by start.bat) |
+| `server.py` | Flask routes |
+| `services.py` | Business logic |
+| `database.py` | Schema + 20 migrations |
+| `inventory.db` | SQLite database — back up daily |
+| `uploads/` | Photo attachments — back up daily |
+
+## Development
 
 ```bat
-REM Terminal 1 — backend
+:: Terminal 1
 python server.py
 
-REM Terminal 2 — React hot reload
-cd client
-npm run dev
+:: Terminal 2
+cd client && npm run dev
 ```
 
-Open `http://localhost:5173` (Vite proxies API to port 8081).
-
-## Features in Detail
-
-### Barcode Scanning
-- **Camera:** Click Scan button — uses device camera (HTTPS required on mobile)
-- **Zebra Scanner:** Bluetooth keyboard mode — scan then press Enter
-
-### SAP Integration
-Imports master data directly from SAP exports (CSV or XLSX):
-- MARA/MAKT — Material master and descriptions
-- MARC — Plant data
-- MBEW — Valuation
-- MARD — Warehouse stock levels
-- MSEG — Material movements
-- LGAP / LGPLO — Storage bins and fixed bin assignments
-- T300T — Storage locations
-- Snapshot — Stock on hand at inventory freeze
-
-### Photo Management
-- Multiple photos per count
-- Stored in `uploads/` directory
-- UUID-based filenames, original name preserved as metadata
-
-### Discrepancy Detection
-- Compares counted quantities against SAP snapshots
-- Highlights variance items
-- SLOC-level and material-level breakdown
-
-## Database
-
-SQLite with WAL mode. 15 migrations auto-applied on startup:
-
-| Migration | Purpose |
-|-----------|---------|
-| 001_core | Users, sessions, counts, photos |
-| 002_messages | Counter ↔ office messaging |
-| 003_audit | Audit log |
-| 004_sap_master | Material master (MARA, MARC, MBEW) |
-| 005_snapshot | SAP stock snapshot |
-| 006_nullable_count_message | Message schema fix |
-| 007_wm_bins | WM bin management |
-| 008_add_password | User password column |
-| 009_user_last_active | Activity tracking |
-| 010_sap_ledger_tables | MARD, MSEG, LGAP, MLGT, MLGN, LQUA |
-| 011_count_validation_warnings | Validation warning column |
-| 012_lgplo | Fixed bin assignments |
-| 013_message_threads | Thread-based Q&A |
-| 014_message_reply_to | Reply threading |
-| 015_counts_warnings_index | Validation warnings index |
+Open `http://localhost:5173` — Vite proxies API calls to port 8081.
 
 ## Backup
 
-Back up these files daily:
+Back up `inventory.db`, `inventory.db-wal`, `inventory.db-shm`, and `uploads/` together — all three `.db*` files are required for a consistent restore.
+
 ```bat
-REM Windows — run in Task Scheduler
 powershell -Command "Compress-Archive -Path inventory.db,inventory.db-wal,inventory.db-shm,uploads -DestinationPath backup_%date:~-4,4%%date:~-10,2%%date:~-7,2%.zip -Force"
 ```
 
-**Important:** Always back up `inventory.db`, `inventory.db-wal`, and `inventory.db-shm` together.
-
 ## Troubleshooting
 
-**Port 8081 already in use:**
-```bat
-netstat -ano | findstr :8081
-taskkill /PID <PID> /F
-```
-
-**Port 80 already in use (nginx won't start):**
-Close IIS or any other web server, then re-run `setup_nginx_proxy.bat`.
-
-**Camera not working on phone:**
-HTTPS is required. Run `python setup_ssl.py` then `setup_nginx_proxy.bat`.
-
-**Node modules not installing:**
-```bat
-cd client
-rmdir /s /q node_modules
-del package-lock.json
-npm install
-```
+| Problem | Fix |
+|---------|-----|
+| Port 8081 in use | `netstat -ano \| findstr :8081` → `taskkill /PID <id> /F` |
+| Camera not working on phone | HTTPS required — run `python setup_ssl.py` then `setup_nginx_proxy.bat` |
+| 502 Bad Gateway | App server not running — start `run_production.py` first |
+| Node modules error | `cd client && rmdir /s /q node_modules && del package-lock.json && npm install` |
