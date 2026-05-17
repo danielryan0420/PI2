@@ -17,7 +17,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { label: 'Count', path: '/count', roles: ['counter', 'admin'] },
   { label: 'Review', path: '/review', roles: ['admin'] },
-  { label: 'Dashboard', path: '/dashboard', roles: ['counter', 'admin'] },
+  { label: 'Dashboard', path: '/dashboard', roles: ['admin'] },
   { label: 'Admin', path: '/admin', roles: ['admin'] },
 ];
 
