@@ -157,10 +157,11 @@ export function DashboardPage() {
   const loadAll = useCallback(async () => {
     await Promise.all([loadSummary(), loadMaterials(), loadVariance(), loadAudit(), loadProblems(),
                        loadOverSnapshot(), loadWmDiscrepancies(), loadReservationWarnings()]);
+
     setLastUpdated(new Date());
     setSecondsAgo(0);
     setLoading(false);
-  }, [loadSummary, loadMaterials, loadVariance, loadAudit, loadProblems]);
+  }, [loadSummary, loadMaterials, loadVariance, loadAudit, loadProblems, loadOverSnapshot, loadWmDiscrepancies, loadReservationWarnings]);
 
   const refreshOverview = useCallback(async () => {
     await loadSummary();

@@ -231,6 +231,7 @@ def list_counts(session_id):
     material = request.args.get('material')
     status = request.args.get('status')
     username = request.args.get('username')
+    sloc = request.args.get('sloc')
 
     filters = {}
     if material:
@@ -239,6 +240,8 @@ def list_counts(session_id):
         filters['status'] = status
     if username:
         filters['username'] = username
+    if sloc:
+        filters['sloc'] = sloc
 
     counts = CountService.list_counts(session_id, filters)
     return jsonify(counts)
