@@ -73,10 +73,21 @@ export function CounterPage() {
   useEffect(() => {
     if (!session) return;
 
-    api.get<Count[]>(`/sessions/${session.id}/counts/mine`, { username })
-      .then(setCounts)
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    const loadCounts = async (silent = false) => {
+      if (!silent) setLoading(true);
+      try {
+        const data = await api.get<Count[]>(`/sessions/${session.id}/counts/mine`, { username });
+        setCounts(prev => {
+          if (prev.length === data.length && JSON.stringify(prev) === JSON.stringify(data)) return prev;
+          return data;
+        });
+      } catch { }
+      finally { if (!silent) setLoading(false); }
+    };
+
+    loadCounts(false);
+    const interval = setInterval(() => loadCounts(true), 5000);
+    return () => clearInterval(interval);
   }, [session?.id, username]);
 
   function handleSubmitted(count: Count) {
