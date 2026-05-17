@@ -6,6 +6,7 @@ import { Input, Textarea } from '../components/ui/Input';
 import { Dialog, ConfirmDialog } from '../components/ui/Dialog';
 import { StatusBadge } from '../components/ui/Badge';
 import { MessageBubble } from '../components/count/MessageBubble';
+import { HelpButton, type HelpSection } from '../components/ui/HelpDialog';
 import { useSession } from '../context/SessionContext';
 import { useToast } from '../context/ToastContext';
 import { api } from '../lib/api';
@@ -13,6 +14,50 @@ import { formatDateTime } from '../lib/utils';
 import type { Count, Message, MessageThread } from '../types';
 
 type Tab = 'review' | 'messages';
+
+const OFFICE_HELP: Record<Tab, HelpSection[]> = {
+  review: [
+    {
+      title: 'Reviewing Counts',
+      bullets: [
+        'The list updates automatically every 5 seconds — no need to refresh.',
+        'Use the filter boxes at the top to narrow by SLOC, status, user, or material.',
+        'Verify: marks the count as confirmed and removes it from the pending queue.',
+        'Flag: sends the count back to the counter for a recount — always add a reason.',
+        'Edit: change the quantity, SLOC, bin, or add notes; a reason is required for audit trail.',
+        'Delete: permanently removes the record — use only for duplicates or test entries.',
+      ],
+    },
+    {
+      title: 'Count Statuses',
+      bullets: [
+        'Pending — submitted by counter, not yet reviewed.',
+        'Verified — confirmed correct by office.',
+        'Flagged — sent back to counter for recount.',
+        'Deleted — removed from the record.',
+      ],
+    },
+    {
+      title: 'Editing a Count',
+      bullets: [
+        'Click Edit on any count to open the edit dialog.',
+        'All changes are logged in the audit trail with your username and reason.',
+        'Delete Record is available at the bottom left of the edit dialog.',
+      ],
+    },
+  ],
+  messages: [
+    {
+      title: 'Counter Questions',
+      bullets: [
+        'Counters use the Messages tab on their screen to ask questions.',
+        'Each question appears here as a thread — click to read and reply.',
+        'Unread threads are highlighted. Reply to close the loop with the counter.',
+        'Threads are linked to the active inventory session.',
+      ],
+    },
+  ],
+};
 
 export function OfficePage() {
   const { username, role, session } = useSession();
@@ -48,9 +93,9 @@ export function OfficePage() {
   const [flagReason, setFlagReason] = useState('');
   const [verifyLoading, setVerifyLoading] = useState<number | null>(null);
 
-  const loadCounts = useCallback(async () => {
+  const loadCounts = useCallback(async (silent = false) => {
     if (!session) return;
-    setLoadingCounts(true);
+    if (!silent) setLoadingCounts(true);
     try {
       const params = new URLSearchParams();
       if (filterSloc) params.set('sloc', filterSloc);
@@ -58,15 +103,18 @@ export function OfficePage() {
       if (filterUser) params.set('username', filterUser);
       if (filterMat) params.set('material', filterMat);
       const data = await api.get<Count[]>(`/sessions/${session.id}/counts?${params}`, headers);
-      setCounts(data);
-    } catch { toast('Failed to load counts', 'error'); }
-    finally { setLoadingCounts(false); }
+      setCounts(prev => {
+        if (prev.length === data.length && JSON.stringify(prev) === JSON.stringify(data)) return prev;
+        return data;
+      });
+    } catch { if (!silent) toast('Failed to load counts', 'error'); }
+    finally { if (!silent) setLoadingCounts(false); }
   }, [session?.id, filterSloc, filterStatus, filterUser, filterMat]);
 
   useEffect(() => {
     if (!session) return;
-    loadCounts();
-    const interval = setInterval(loadCounts, 5000);
+    loadCounts(false);
+    const interval = setInterval(() => loadCounts(true), 5000);
     return () => clearInterval(interval);
   }, [session, loadCounts]);
 
@@ -213,18 +261,24 @@ export function OfficePage() {
     <AppShell>
       <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 flex flex-col gap-4">
         {/* Tab bar */}
-        <div className="flex gap-1 overflow-x-auto border-b border-gray-200 pb-0.5">
-          {tabs.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={`no-min-h px-4 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition-colors -mb-0.5 ${
-                tab === t.key ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
+        <div className="flex items-center gap-3 border-b border-gray-200 pb-0.5">
+          <div className="flex gap-1 overflow-x-auto flex-1">
+            {tabs.map((t) => (
+              <button
+                key={t.key}
+                onClick={() => setTab(t.key)}
+                className={`no-min-h px-4 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition-colors -mb-0.5 ${
+                  tab === t.key ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <HelpButton
+            title={tab === 'review' ? 'Review Help' : 'Messages Help'}
+            sections={OFFICE_HELP[tab]}
+          />
         </div>
 
         {/* ─── REVIEW TAB ─── */}

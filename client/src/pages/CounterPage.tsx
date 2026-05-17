@@ -3,9 +3,64 @@ import { AppShell } from '../components/layout/AppShell';
 import { CountForm } from '../components/count/CountForm';
 import { CountCard } from '../components/count/CountCard';
 import { MessagesPanel } from '../components/count/MessagesPanel';
+import { HelpButton } from '../components/ui/HelpDialog';
 import { useSession } from '../context/SessionContext';
 import { api } from '../lib/api';
 import type { Count, Message } from '../types';
+
+const COUNTER_HELP = {
+  'count': [
+    {
+      title: 'Entering a Count',
+      bullets: [
+        'Type or scan the material number — the system will look it up automatically.',
+        'Enter the quantity you physically counted.',
+        'Select the storage location (SLOC) where you counted it.',
+        'If counting in a WM warehouse, enter the bin number.',
+        'Hit Submit. The count appears in your history on the right.',
+      ],
+    },
+    {
+      title: 'Barcode Scanning',
+      bullets: [
+        'Camera scan: tap the Scan button and point at the barcode.',
+        'Zebra scanner: pair via Bluetooth in keyboard mode — scan the barcode then press Enter.',
+        'HTTPS is required for camera scanning on phones — ask your admin if the camera button is missing.',
+      ],
+    },
+    {
+      title: 'Attaching Photos',
+      bullets: [
+        'Use the photo button on the count form to attach one or more photos.',
+        'Useful for documenting damaged goods, odd locations, or anything unusual.',
+      ],
+    },
+    {
+      title: 'Flagged Counts',
+      bullets: [
+        'If the office flags your count, it will appear red in your history.',
+        'Click Recount on the flagged item to re-enter it — the original record is updated, not duplicated.',
+      ],
+    },
+    {
+      title: 'Warnings',
+      bullets: [
+        'An amber warning means this material has an open purchase order, production order, or reservation.',
+        'This is informational — count what you physically see and let the office know if something looks wrong.',
+      ],
+    },
+  ],
+  'messages': [
+    {
+      title: 'Asking the Office a Question',
+      bullets: [
+        'Use the Messages tab to send a question about any material or location.',
+        'The office sees your question on their dashboard and can reply here.',
+        'A badge on the Messages tab shows unread replies.',
+      ],
+    },
+  ],
+};
 
 export function CounterPage() {
   const { username, session } = useSession();
@@ -58,7 +113,8 @@ export function CounterPage() {
       <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4">
 
         {/* Tab switcher */}
-        <div className="flex gap-1 mb-4 bg-gray-100 p-1 rounded-xl w-fit">
+        <div className="flex items-center gap-2 mb-4">
+        <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
           <button
             onClick={() => handleTabChange('count')}
             className={`relative px-5 py-2 rounded-lg text-sm font-medium transition-colors ${tab === 'count' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-600 hover:text-gray-800'}`}
@@ -76,6 +132,11 @@ export function CounterPage() {
               </span>
             )}
           </button>
+        </div>
+          <HelpButton
+            title={tab === 'count' ? 'Count Entry Help' : 'Messages Help'}
+            sections={COUNTER_HELP[tab]}
+          />
         </div>
 
         {tab === 'count' && (

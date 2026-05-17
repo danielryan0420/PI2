@@ -4,6 +4,7 @@ import { Button } from '../components/ui/Button';
 import { Input, Select } from '../components/ui/Input';
 import { Dialog, ConfirmDialog } from '../components/ui/Dialog';
 import { Card, CardBody, CardHeader } from '../components/ui/Card';
+import { HelpButton, type HelpSection } from '../components/ui/HelpDialog';
 import { useSession } from '../context/SessionContext';
 import { useToast } from '../context/ToastContext';
 import { api } from '../lib/api';
@@ -11,6 +12,98 @@ import { formatDateTime } from '../lib/utils';
 import type { User, Role, InventorySession, SlocConfig } from '../types';
 
 type Tab = 'users' | 'data' | 'export' | 'config';
+
+const ADMIN_HELP: Record<Tab, HelpSection[]> = {
+  users: [
+    {
+      title: 'Managing Users',
+      bullets: [
+        'Add User creates a new counter or admin account.',
+        'Counters can only submit counts and send messages. Admins have full access.',
+        'Counter passwords are optional — leave blank to allow any password.',
+        'Admin passwords default to "StopGap" if left blank — change it immediately.',
+        'The green dot shows users who were active in the last 10 minutes.',
+      ],
+    },
+    {
+      title: 'Inventory Sessions',
+      bullets: [
+        'A session represents one physical inventory event.',
+        'Create a new session at the start of each count cycle.',
+        'All counts, snapshots, and messages are tied to the active session.',
+        'Only one session is active at a time.',
+      ],
+    },
+  ],
+  data: [
+    {
+      title: 'SAP Data Imports',
+      bullets: [
+        'Upload CSV or XLSX files exported directly from SAP.',
+        'Each upload replaces the previous data for that table.',
+        'Any SAP column is accepted — extra columns are stored automatically.',
+        'Import order: MARA → MARC → MARD → Snapshot, then open order tables.',
+      ],
+    },
+    {
+      title: 'Open Order Tables (EKKO/EKPO/AUFK/RESB)',
+      bullets: [
+        'These drive the warnings counters see at count entry time.',
+        'EKKO + EKPO: purchase order headers and line items (ME2M export).',
+        'AUFK: production/process orders not yet technically complete (CO03).',
+        'RESB: open reservations that still need to be issued (MB25).',
+        'Warnings alert counters that a material has pending orders before they enter stock.',
+      ],
+    },
+    {
+      title: 'Material Exclusion List',
+      bullets: [
+        'Upload a CSV with a MATNR column to exclude materials from the SAP export.',
+        'Excluded materials can still be counted — they are only removed from the final adjustment file.',
+        'Useful for materials that are out of scope for this count event.',
+      ],
+    },
+    {
+      title: 'WM Tables (LQUA / MLGT / MLGN)',
+      bullets: [
+        'LQUA provides bin-level quant data used in the WM Discrepancies dashboard tab.',
+        'MLGT and MLGN provide WM storage type and section master data.',
+      ],
+    },
+  ],
+  export: [
+    {
+      title: 'SAP Adjustment Export',
+      bullets: [
+        'This is the file to load back into SAP after the count is complete.',
+        'Contains one row per material/SLOC where the count differs from the snapshot.',
+        'Adjustment column = counted qty minus snapshot qty (positive = add stock, negative = reduce).',
+        'Materials on the exclusion list are automatically filtered out.',
+        'Only materials that were physically counted appear — uncounted materials are excluded.',
+      ],
+    },
+    {
+      title: 'Full Count Data Export',
+      bullets: [
+        'Exports every individual count record for your own records.',
+        'Use the date filters to limit the export to a specific range.',
+        'Photos and messages are not included in the export.',
+      ],
+    },
+  ],
+  config: [
+    {
+      title: 'SLOC Configuration',
+      bullets: [
+        'Storage locations are imported from SAP (T300T table in SAP Data tab).',
+        'WM toggle: counters in this SLOC will be asked for a WM bin number.',
+        'IM toggle: counters in this SLOC count at the IM (inventory management) level only.',
+        'Both can be enabled if a location uses both WM and IM.',
+        'Disable a SLOC to hide it from the count entry form.',
+      ],
+    },
+  ],
+};
 
 const ROLE_OPTIONS = [
   { value: 'counter', label: 'Counter' },
@@ -211,7 +304,8 @@ const tabs: { key: Tab; label: string }[] = [
     <AppShell>
       <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 flex flex-col gap-4">
         {/* Tab bar */}
-        <div className="flex gap-1 overflow-x-auto border-b border-gray-200 pb-0.5">
+        <div className="flex items-center gap-3 border-b border-gray-200 pb-0.5">
+        <div className="flex gap-1 overflow-x-auto flex-1">
           {tabs.map((t) => (
             <button
               key={t.key}
@@ -223,6 +317,11 @@ const tabs: { key: Tab; label: string }[] = [
               {t.label}
             </button>
           ))}
+          </div>
+          <HelpButton
+            title={`${tabs.find(t => t.key === tab)?.label ?? 'Admin'} Help`}
+            sections={ADMIN_HELP[tab]}
+          />
         </div>
 
         {/* ─── USERS & SESSIONS TAB ─── */}
