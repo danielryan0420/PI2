@@ -485,6 +485,28 @@ CREATE INDEX IF NOT EXISTS idx_resb_matnr ON sap_resb(matnr);
 CREATE INDEX IF NOT EXISTS idx_resb_aufnr ON sap_resb(aufnr);
 CREATE INDEX IF NOT EXISTS idx_resb_werks ON sap_resb(werks);
 """),
+    ("021_audit_log_soft_delete.sql", """
+-- Rebuild audit_log so count_id is nullable (ON DELETE SET NULL)
+-- This preserves audit history when a count record is deleted.
+PRAGMA foreign_keys = OFF;
+CREATE TABLE IF NOT EXISTS audit_log_v2 (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    count_id        INTEGER REFERENCES counts(id) ON DELETE SET NULL,
+    editor_username TEXT NOT NULL,
+    event_type      TEXT NOT NULL,
+    field_name      TEXT,
+    old_value       TEXT,
+    new_value       TEXT,
+    reason          TEXT,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+INSERT INTO audit_log_v2 SELECT * FROM audit_log;
+DROP TABLE audit_log;
+ALTER TABLE audit_log_v2 RENAME TO audit_log;
+CREATE INDEX IF NOT EXISTS idx_audit_count ON audit_log(count_id);
+CREATE INDEX IF NOT EXISTS idx_audit_time ON audit_log(created_at);
+PRAGMA foreign_keys = ON;
+"""),
     ("020_material_exclusions.sql", """
 CREATE TABLE IF NOT EXISTS material_exclusions (
     material_number TEXT PRIMARY KEY,

@@ -169,6 +169,7 @@ export function OfficePage() {
   // ─── Messages tab state ───────────────────────────────────────────────────
   const [threads, setThreads] = useState<MessageThread[]>([]);
   const [replyTarget, setReplyTarget] = useState<number | null>(null);
+  const replyTargetRef = useRef<number | null>(null);
   const [replyText, setReplyText] = useState('');
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [threadMessages, setThreadMessages] = useState<Message[]>([]);
@@ -193,12 +194,14 @@ export function OfficePage() {
     } catch { /**/ }
   }
 
+  useEffect(() => { replyTargetRef.current = replyTarget; }, [replyTarget]);
+
   useEffect(() => {
     if (tab === 'messages') {
       loadThreads();
       pollRef.current = setInterval(() => {
         loadThreads();
-        if (replyTarget !== null) loadThread(replyTarget);
+        if (replyTargetRef.current !== null) loadThread(replyTargetRef.current);
       }, 6000);
     }
     return () => { if (pollRef.current) clearInterval(pollRef.current); };

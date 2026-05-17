@@ -52,13 +52,7 @@ export function EntryPage() {
 
       navigate(user.role === 'counter' ? '/count' : '/admin');
     } catch (e) {
-      if (e instanceof Error && e.message.includes('401')) {
-        toast('Invalid username or password', 'error');
-      } else if (e instanceof Error && e.message.includes('not found')) {
-        toast('Username not found', 'error');
-      } else {
-        toast('Failed to sign in. Check server connection.', 'error');
-      }
+      toast(e instanceof Error ? e.message : 'Failed to sign in. Check server connection.', 'error');
     } finally {
       setLoading(false);
     }

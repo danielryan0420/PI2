@@ -89,6 +89,9 @@ class CountService:
             if username := filters.get('username'):
                 query += " AND username = ?"
                 params.append(username)
+            if sloc := filters.get('sloc'):
+                query += " AND sloc = ?"
+                params.append(sloc)
 
         query += " ORDER BY created_at DESC"
         return db.fetch_all(query, tuple(params))
@@ -145,7 +148,6 @@ class CountService:
     @staticmethod
     def delete_count(count_id: int, editor_username: str) -> None:
         AuditService.log_event(count_id, editor_username, 'delete', None, None, None, 'Record deleted by admin')
-        db.execute("DELETE FROM audit_log WHERE count_id = ?", (count_id,))
         db.execute("DELETE FROM photos WHERE count_id = ?", (count_id,))
         db.execute("DELETE FROM messages WHERE count_id = ?", (count_id,))
         db.execute("DELETE FROM counts WHERE id = ?", (count_id,))
@@ -280,7 +282,7 @@ class AuditService:
     def get_session_audit(session_id: int) -> List[Dict]:
         return db.fetch_all(
             """
-            SELECT a.* FROM audit_log a
+            SELECT a.*, c.material_number, c.sloc FROM audit_log a
             JOIN counts c ON a.count_id = c.id
             WHERE c.session_id = ?
             ORDER BY a.created_at DESC
@@ -729,33 +731,6 @@ class ImportService:
         return count
 
     @staticmethod
-    def import_lqua(rows: List[Dict]) -> int:
-        db.execute("DELETE FROM sap_lqua")
-        count = 0
-        for row in rows:
-            mat = (row.get('material_number') or row.get('MATNR') or '').strip()
-            plant = (row.get('plant') or row.get('WERKS') or '').strip()
-            sloc = (row.get('storage_location') or row.get('LGORT') or '').strip()
-            if not mat or not plant or not sloc:
-                continue
-            try:
-                db.insert("""
-                    INSERT OR REPLACE INTO sap_lqua
-                    (material_number, plant, storage_location, quantity_unrestricted, quantity_restricted, quantity_blocked, uom)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    mat, plant, sloc,
-                    float(row.get('quantity_unrestricted') or row.get('LABST') or 0),
-                    float(row.get('quantity_restricted') or row.get('SPERR') or 0),
-                    float(row.get('quantity_blocked') or row.get('CHARG') or 0),
-                    row.get('uom') or row.get('MEINS') or ''
-                ))
-                count += 1
-            except Exception:
-                continue
-        return count
-
-    @staticmethod
     def import_storage_locations(rows: List[Dict]) -> int:
         db.execute("DELETE FROM sap_storage_locations")
         count = 0
@@ -783,7 +758,7 @@ class ImportService:
         db.execute("DELETE FROM sap_lgap")
         count = 0
         for row in rows:
-            bin_code = (row.get('bin_code') or row.get('BINID') or '').strip()
+            bin_code = (row.get('bin_code') or row.get('LGPLA') or row.get('BINID') or '').strip()
             plant = (row.get('plant') or row.get('WERKS') or '').strip()
             sloc = (row.get('storage_location') or row.get('LGORT') or '').strip()
             if not bin_code or not plant or not sloc:
@@ -795,9 +770,9 @@ class ImportService:
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     bin_code, plant, sloc,
-                    row.get('bin_type') or row.get('BINTYPE') or '',
-                    row.get('storage_type') or row.get('LOTYP') or '',
-                    row.get('description') or row.get('BINTEXT') or '',
+                    row.get('bin_type') or row.get('LGTYP') or row.get('BINTYPE') or '',
+                    row.get('storage_type') or row.get('LGTYP') or row.get('LOTYP') or '',
+                    row.get('description') or row.get('LGPLT') or row.get('BINTEXT') or '',
                     float(row.get('capacity_qty') or row.get('MAXKG') or 0) if row.get('capacity_qty') or row.get('MAXKG') else None,
                     row.get('capacity_uom') or row.get('MEINS') or ''
                 ))
