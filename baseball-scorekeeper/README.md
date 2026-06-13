@@ -37,6 +37,16 @@ Default scorekeeper login: **scorekeeper / baseball** (seeded automatically on f
 
 ## Streaming overlay (OBS)
 
+> **See [STREAMING.md](STREAMING.md) for the full streaming guide**, including how
+> to run everything over a phone hotspot when your streaming device has no
+> cellular, and how to stream from an iPhone vs. a laptop with OBS.
+
+Every game has an in-app **"Share / stream"** panel with QR codes and copyable
+links for the scoreboard, the transparent OBS overlay, and the scorekeeper page.
+Because the links are built from the address you opened the app at, scanning a
+QR code from any device on the same Wi-Fi/hotspot opens the right URL with no IP
+typing. When you start `server.py`, it also prints the LAN URL to share.
+
 The scoreboard page is public and supports query params for use as an OBS browser source:
 
 - `?transparent=1` - transparent background

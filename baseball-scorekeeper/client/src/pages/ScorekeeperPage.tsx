@@ -8,6 +8,7 @@ import { BaserunnerDiamond } from '../components/scorekeeper/BaserunnerDiamond';
 import { AtBatOutcomePicker } from '../components/scorekeeper/AtBatOutcomePicker';
 import { UndoBar } from '../components/scorekeeper/UndoBar';
 import { Button } from '../components/ui/Button';
+import { ShareLinks } from '../components/ShareLinks';
 import type { AtBatOutcome, GameStateSnapshot, RunnerActions } from '../types';
 
 export function ScorekeeperPage() {
@@ -17,6 +18,7 @@ export function ScorekeeperPage() {
   const [runnerActions, setRunnerActions] = useState<RunnerActions>({ '1b': 'stay', '2b': 'stay', '3b': 'stay' });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [showShare, setShowShare] = useState(false);
 
   useEffect(() => {
     if (!gameId) return;
@@ -79,10 +81,15 @@ export function ScorekeeperPage() {
     <div className="max-w-md mx-auto p-3 space-y-3 pb-8">
       <div className="flex items-center justify-between text-sm">
         <Link to="/games" className="text-blue-600 hover:underline min-h-0">&larr; Games</Link>
+        <button onClick={() => setShowShare((s) => !s)} className="text-blue-600 hover:underline min-h-0">
+          {showShare ? 'Hide share' : 'Share / stream'}
+        </button>
         <Link to={`/scoreboard/${gameId}`} target="_blank" className="text-blue-600 hover:underline min-h-0">
           Open scoreboard
         </Link>
       </div>
+
+      {showShare && gameId && <ShareLinks gameId={gameId} />}
 
       <h1 className="text-center font-bold">
         {game.away_team_name} @ {game.home_team_name}

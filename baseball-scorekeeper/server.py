@@ -259,5 +259,35 @@ def serve_frontend(path):
     return send_from_directory(DIST_DIR, 'index.html')
 
 
+def _print_lan_urls(port):
+    """Print the LAN address(es) the app is reachable at, so the host knows
+    which URL to open / share (e.g. over a phone hotspot)."""
+    import socket
+    addrs = set()
+    try:
+        # Doesn't actually send packets; just picks the default outbound interface.
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(('8.8.8.8', 80))
+        addrs.add(s.getsockname()[0])
+        s.close()
+    except Exception:
+        pass
+    try:
+        for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
+            ip = info[4][0]
+            if not ip.startswith('127.'):
+                addrs.add(ip)
+    except Exception:
+        pass
+
+    print('\n  Baseball Scorekeeper is running:')
+    print(f'    Local:   http://localhost:{port}')
+    for ip in sorted(addrs):
+        print(f'    Network: http://{ip}:{port}   <- open this on other devices on the same Wi-Fi/hotspot')
+    print('  Open the Network URL on each device, then use the in-app "Share / stream" QR codes.\n')
+
+
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=8082, debug=True)
+    PORT = 8082
+    _print_lan_urls(PORT)
+    socketio.run(app, host='0.0.0.0', port=PORT, debug=True)

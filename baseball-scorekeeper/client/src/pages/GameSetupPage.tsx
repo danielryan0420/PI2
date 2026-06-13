@@ -4,6 +4,7 @@ import { api } from '../lib/api';
 import { Button } from '../components/ui/Button';
 import { Card, Input, Select } from '../components/ui/Card';
 import { LineupEditor, type LineupEntry } from '../components/scorekeeper/LineupEditor';
+import { ShareLinks } from '../components/ShareLinks';
 import type { Game, Team, Player, Lineup } from '../types';
 
 const EMPTY_LINEUP: LineupEntry[] = Array.from({ length: 9 }, () => ({ player_id: '', position: '' }));
@@ -204,6 +205,8 @@ function LineupSetup({ gameId }: { gameId: number }) {
       {game.status === 'in_progress' && (
         <Link to={`/score/${gameId}`}><Button className="w-full">Go to scorekeeper</Button></Link>
       )}
+
+      <ShareLinks gameId={gameId} />
     </div>
   );
 }
