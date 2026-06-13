@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+baseball.db
+baseball.db-shm
+baseball.db-wal
+node_modules/
+client/dist/
+client/node_modules/
+.DS_Store
