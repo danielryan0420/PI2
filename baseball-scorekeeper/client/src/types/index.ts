@@ -65,6 +65,7 @@ export interface GameStateRow {
   runner_3b: number | null;
   home_batting_index: number;
   away_batting_index: number;
+  last_pitch: 'ball' | 'strike' | 'foul' | null;
 }
 
 export interface RunnerInfo {

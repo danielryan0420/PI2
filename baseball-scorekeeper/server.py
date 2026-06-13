@@ -211,6 +211,31 @@ def record_at_bat(game_id):
     return jsonify(state)
 
 
+@app.post('/api/games/<int:game_id>/pitch')
+def record_pitch(game_id):
+    data = request.json or {}
+    pitch_type = data.get('type')
+    try:
+        state = PlayService.record_pitch(game_id, pitch_type)
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    broadcast_state(socketio, game_id)
+    if state['game_state']['balls'] == 0 and state['game_state']['strikes'] == 0:
+        # The pitch ended the at-bat (walk or strikeout) -> notify like an at-bat.
+        broadcast_play(socketio, game_id, state)
+    return jsonify(state)
+
+
+@app.post('/api/games/<int:game_id>/pitch/undo')
+def undo_pitch(game_id):
+    try:
+        state = PlayService.undo_pitch(game_id)
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    broadcast_state(socketio, game_id)
+    return jsonify(state)
+
+
 @app.post('/api/games/<int:game_id>/undo')
 def undo_play(game_id):
     try:

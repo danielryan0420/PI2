@@ -4,6 +4,7 @@ import { api } from '../lib/api';
 import { joinGame, getSocket } from '../lib/socket';
 import { defaultRunnerActions, cycleRunnerAction } from '../lib/baseballRules';
 import { CountDisplay } from '../components/scorekeeper/CountDisplay';
+import { PitchPanel } from '../components/scorekeeper/PitchPanel';
 import { BaserunnerDiamond } from '../components/scorekeeper/BaserunnerDiamond';
 import { AtBatOutcomePicker } from '../components/scorekeeper/AtBatOutcomePicker';
 import { UndoBar } from '../components/scorekeeper/UndoBar';
@@ -72,6 +73,36 @@ export function ScorekeeperPage() {
     setOutcome(null);
   };
 
+  const pitch = async (type: 'ball' | 'strike' | 'foul') => {
+    if (!gameId) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const updated = await api.post<GameStateSnapshot>(`/games/${gameId}/pitch`, { type });
+      setState(updated);
+      if (updated.game_state?.balls === 0 && updated.game_state?.strikes === 0) {
+        // Auto-recorded walk/strikeout ended the at-bat; clear any in-progress picker state.
+        setOutcome(null);
+        setRunnerActions({ '1b': 'stay', '2b': 'stay', '3b': 'stay' });
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to record pitch');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const undoPitch = async () => {
+    if (!gameId) return;
+    setError(null);
+    try {
+      const updated = await api.post<GameStateSnapshot>(`/games/${gameId}/pitch/undo`);
+      setState(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to undo pitch');
+    }
+  };
+
   if (!state) return <div className="p-4">Loading...</div>;
 
   const { game, game_state } = state;
@@ -96,6 +127,8 @@ export function ScorekeeperPage() {
       </h1>
 
       <CountDisplay gameState={game_state} />
+
+      <PitchPanel gameState={game_state} onPitch={pitch} onUndoPitch={undoPitch} busy={busy} />
 
       <div className="flex justify-center">
         <BaserunnerDiamond state={state} runnerActions={runnerActions} onCycle={cycleRunner} />

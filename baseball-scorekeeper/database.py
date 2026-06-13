@@ -126,6 +126,11 @@ CREATE TABLE IF NOT EXISTS line_score (
     PRIMARY KEY (game_id, team_id, inning)
 );
 """),
+    ("002_pitch_tracking.sql", """
+-- Tracks the most recent ball/strike/foul so a single pitch can be undone
+-- without affecting the at-bat-level undo/replay log.
+ALTER TABLE game_state ADD COLUMN last_pitch TEXT;
+"""),
 ]
 
 

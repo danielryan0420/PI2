@@ -346,6 +346,7 @@ class PlayService:
                     'outs': new_outs_value,
                     'balls': 0,
                     'strikes': 0,
+                    'last_pitch': None,
                     'home_score': new_home_score,
                     'away_score': new_away_score,
                     'runner_1b': new_runners['1b'],
@@ -370,6 +371,75 @@ class PlayService:
                 conn.execute("ROLLBACK")
                 raise
 
+        return PlayService.get_state(game_id)
+
+    @staticmethod
+    def record_pitch(game_id, pitch_type):
+        """Record a single ball/strike/foul, auto-completing the at-bat as a
+        walk on the 4th ball or a strikeout on the 3rd strike. A foul ball
+        with two strikes adds a foul out but does not advance the strike count.
+        """
+        if pitch_type not in ('ball', 'strike', 'foul'):
+            raise ValueError("Invalid pitch type")
+
+        game = db.fetch_one("SELECT * FROM games WHERE id = ?", (game_id,))
+        if not game:
+            raise ValueError("Game not found")
+        if game['status'] != 'in_progress':
+            raise ValueError("Game is not in progress")
+
+        state = db.fetch_one("SELECT * FROM game_state WHERE game_id = ?", (game_id,))
+        if not state:
+            raise ValueError("Game state not initialized")
+
+        balls = state['balls']
+        strikes = state['strikes']
+
+        recorded_pitch = pitch_type
+        if pitch_type == 'ball':
+            balls += 1
+        elif pitch_type == 'strike':
+            strikes += 1
+        elif pitch_type == 'foul':
+            if strikes < 2:
+                strikes += 1
+            else:
+                # foul with 2 strikes: count unchanged, nothing to undo
+                recorded_pitch = None
+
+        if balls >= 4:
+            return PlayService.record_at_bat(game_id, 'walk', description='Walk (ball 4)')
+        if strikes >= 3:
+            return PlayService.record_at_bat(game_id, 'strikeout', description='Strikeout')
+
+        db.execute(
+            "UPDATE game_state SET balls = ?, strikes = ?, last_pitch = ?, updated_at = datetime('now') WHERE game_id = ?",
+            (balls, strikes, recorded_pitch, game_id)
+        )
+        return PlayService.get_state(game_id)
+
+    @staticmethod
+    def undo_pitch(game_id):
+        """Undo the single most recent ball/strike/foul (not a full at-bat)."""
+        state = db.fetch_one("SELECT * FROM game_state WHERE game_id = ?", (game_id,))
+        if not state:
+            raise ValueError("Game state not initialized")
+
+        last_pitch = state['last_pitch']
+        if not last_pitch:
+            raise ValueError("No pitch to undo")
+
+        balls = state['balls']
+        strikes = state['strikes']
+        if last_pitch == 'ball':
+            balls = max(0, balls - 1)
+        elif last_pitch in ('strike', 'foul'):
+            strikes = max(0, strikes - 1)
+
+        db.execute(
+            "UPDATE game_state SET balls = ?, strikes = ?, last_pitch = NULL, updated_at = datetime('now') WHERE game_id = ?",
+            (balls, strikes, game_id)
+        )
         return PlayService.get_state(game_id)
 
     @staticmethod
@@ -465,7 +535,7 @@ class PlayService:
 
         conn.execute("""
             UPDATE game_state SET
-                inning = ?, half = ?, outs = ?, balls = 0, strikes = 0,
+                inning = ?, half = ?, outs = ?, balls = 0, strikes = 0, last_pitch = NULL,
                 home_score = ?, away_score = ?,
                 runner_1b = ?, runner_2b = ?, runner_3b = ?,
                 home_batting_index = ?, away_batting_index = ?,
