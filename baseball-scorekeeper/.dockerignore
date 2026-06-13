@@ -1,0 +1,8 @@
+**/__pycache__/
+**/*.pyc
+baseball.db
+baseball.db-*
+client/node_modules/
+client/dist/
+.git/
+*.md

@@ -1,0 +1,20 @@
+# Render.com deployment blueprint.
+#
+# Easiest if baseball-scorekeeper is its own repo (this file at the repo root):
+# push to GitHub, then on Render: New > Blueprint, pick the repo.
+#
+# If it stays a subfolder of Physical_Inventory, skip the Blueprint and create
+# the service manually instead: New > Web Service > pick the repo, set
+# "Root Directory" = baseball-scorekeeper, Runtime = Docker. See STREAMING.md.
+services:
+  - type: web
+    name: baseball-scorekeeper
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/teams
+    autoDeploy: true
+    # The free plan's disk is ephemeral: the SQLite game data resets when the
+    # service restarts or sleeps. Fine for a single game set up shortly before
+    # first pitch. For durable history, attach a paid persistent disk mounted at
+    # /app and the SQLite file will survive restarts.

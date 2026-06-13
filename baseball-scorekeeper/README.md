@@ -64,10 +64,18 @@ the browser source during scene switches.
 
 ## Production
 
+Run directly:
+
 ```bash
 npm run build   # builds client/dist, served by Flask
 gunicorn -k eventlet -w 1 wsgi:app
 ```
+
+Or deploy the included `Dockerfile` to any container host (Render, Railway,
+Fly.io, a VPS); it builds the client and serves everything via gunicorn, binding
+to `$PORT`. A `render.yaml` is included for Render. For a no-laptop, all-mobile
+streaming rig, cloud hosting is the recommended path — see
+[STREAMING.md](STREAMING.md).
 
 Note: Socket.IO with eventlet requires a single worker process (`-w 1`) since
 connections are held in-memory per worker.
