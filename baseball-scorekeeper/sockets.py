@@ -1,3 +1,4 @@
+from flask import request
 from flask_socketio import join_room, leave_room
 from services import PlayService
 
@@ -12,7 +13,7 @@ def register_socket_handlers(socketio):
         join_room(room)
         state = PlayService.get_state(game_id)
         if state:
-            socketio.emit('state_sync', state, room=room, include_self=True)
+            socketio.emit('state_sync', state, room=request.sid)
 
     @socketio.on('leave_game')
     def handle_leave_game(data):

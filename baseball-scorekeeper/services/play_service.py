@@ -360,10 +360,10 @@ class PlayService:
                 )
 
                 if runs_scored:
-                    conn.execute(
-                        "UPDATE line_score SET runs = runs + ? WHERE game_id = ? AND team_id = ? AND inning = ?",
-                        (runs_scored, game_id, batting_team_id, state['inning'])
-                    )
+                    conn.execute("""
+                        INSERT INTO line_score (game_id, team_id, inning, runs) VALUES (?, ?, ?, ?)
+                        ON CONFLICT(game_id, team_id, inning) DO UPDATE SET runs = runs + excluded.runs
+                    """, (game_id, batting_team_id, state['inning'], runs_scored))
 
                 conn.execute("COMMIT")
             except Exception:
@@ -438,10 +438,10 @@ class PlayService:
                     home_score += runs_scored
                 else:
                     away_score += runs_scored
-                conn.execute(
-                    "UPDATE line_score SET runs = runs + ? WHERE game_id = ? AND team_id = ? AND inning = ?",
-                    (runs_scored, game_id, batting_team_id, play['inning'])
-                )
+                conn.execute("""
+                    INSERT INTO line_score (game_id, team_id, inning, runs) VALUES (?, ?, ?, ?)
+                    ON CONFLICT(game_id, team_id, inning) DO UPDATE SET runs = runs + excluded.runs
+                """, (game_id, batting_team_id, play['inning'], runs_scored))
 
             if batting_team_id == game['home_team_id']:
                 home_batting_index = (home_batting_index + 1) % home_lineup_size
