@@ -8,4 +8,4 @@ npm run dev       # dev server at http://localhost:5173 (proxies API to :8081)
 npm run build     # production build → dist/ (served by Flask)
 ```
 
-Built output is committed to `dist/` and served directly by the Flask backend — no separate Node process needed in production.
+Build output goes to `dist/` (gitignored, built on setup/update) and is served directly by the Flask backend — no separate Node process needed in production.
